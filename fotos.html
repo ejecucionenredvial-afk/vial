@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Registro de Obra</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #fff;
+    min-height: 100vh;
+    padding: 16px 14px 60px;
+  }
+  h1 {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #a0c4ff;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .sync-status {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #6a8fc0;
+    margin-bottom: 14px;
+    min-height: 16px;
+  }
+  .sync-status.ok { color: #4caf50; }
+  .sync-status.err { color: #ff6b6b; }
+  .obra-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 1.5px solid #0f3460;
+  }
+  .obra-card.completa { border-color: #4caf50; }
+  .obra-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .obra-num { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #a0c4ff; }
+  .obra-dir { font-size: 0.88rem; font-weight: 600; color: #fff; margin-top: 2px; word-break: break-word; }
+  .obra-hora { font-size: 0.7rem; color: #6a8fc0; white-space: nowrap; margin-left: 8px; padding-top: 2px; }
+  .dir-box {
+    background: #0f3460; border-radius: 10px; padding: 12px;
+    font-size: 0.88rem; color: #a0c4ff; font-style: italic;
+    margin-bottom: 12px; min-height: 44px; display: flex; align-items: center;
+  }
+  .dir-input {
+    background: #0f3460; border: 1.5px solid #1e4080; border-radius: 10px;
+    padding: 12px; font-size: 0.88rem; color: #fff; width: 100%; outline: none; margin-bottom: 12px;
+  }
+  .dir-input::placeholder { color: #6a8fc0; }
+  .fotos-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .foto-slot { position: relative; }
+  .foto-btn {
+    width: 100%; aspect-ratio: 1; background: #0f3460; border: 2px dashed #1e4080;
+    border-radius: 12px; color: #6a8fc0; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; text-align: center; padding: 8px;
+  }
+  .foto-btn .ico { font-size: 1.6rem; }
+  .foto-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; display: block; }
+  .foto-retomar {
+    position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.65);
+    border: none; border-radius: 8px; color: #fff; font-size: 0.65rem; padding: 4px 8px; cursor: pointer;
+  }
+  input[type="file"] { display: none; }
+  .obra-actions { display: flex; gap: 8px; }
+  .btn-enviar-obra {
+    flex: 1; padding: 13px; background: #25d366; border: none; border-radius: 12px;
+    color: #fff; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
+  }
+  .btn-enviar-obra.activo { opacity: 1; pointer-events: all; }
+  .btn-eliminar-obra {
+    padding: 13px 14px; background: transparent; border: 1.5px solid #3a2020;
+    border-radius: 12px; color: #ff6b6b; font-size: 1rem; cursor: pointer;
+  }
+  .btn-nueva {
+    width: 100%; padding: 18px; background: #0f3460; border: 2px dashed #1e4080;
+    border-radius: 16px; color: #a0c4ff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+  }
+  .empty-state { text-align: center; color: #3a5080; font-size: 0.9rem; padding: 40px 0 20px; }
+  .empty-state .ico { font-size: 3rem; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>&#128247; Registro de Obras</h1>
+<div class="sync-status" id="sync-status">Conectando...</div>
+<div id="lista-obras"></div>
+<div class="empty-state" id="empty">
+  <div class="ico">&#128247;</div>
+  Toc&#225; el bot&#243;n para registrar una obra
+</div>
+<button class="btn-nueva" onclick="nuevaObra()">&#43; Nueva obra</button>
+
+<!-- Firebase SDK via CDN (compat version - funciona sin bundler) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ── FIREBASE ───────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyANG5h273-mIdDzab0nK7YkLmfX0aNpBrY",
+  authDomain: "fotos-a51c3.firebaseapp.com",
+  projectId: "fotos-a51c3",
+  storageBucket: "fotos-a51c3.firebasestorage.app",
+  messagingSenderId: "109970651518",
+  appId: "1:109970651518:web:3e9be92ac864325bbcdb2f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── DEVICE ID ──────────────────────────────────────────
+function getDeviceId() {
+  let id = localStorage.getItem('device_id');
+  if (!id) { id = 'dev_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('device_id', id); }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
+
+// ── ESTADO ─────────────────────────────────────────────
+var obras = [];
+var contadorId = 1;
+
+function setSyncStatus(msg, tipo) {
+  var el = document.getElementById('sync-status');
+  el.innerHTML = msg;
+  el.className = 'sync-status' + (tipo ? ' ' + tipo : '');
+}
+
+// ── FIRESTORE ──────────────────────────────────────────
+function guardarObra(obra) {
+  var data = {
+    id: obra.id, direccion: obra.direccion || '', horaInicio: obra.horaInicio || '',
+    fotoAntes: obra.fotoAntes || null, fotoDespues: obra.fotoDespues || null,
+    enviada: obra.enviada || false, tsEnviada: obra.tsEnviada || null,
+    gpsError: obra.gpsError || false, ts: Date.now()
+  };
+  db.collection('dispositivos').doc(DEVICE_ID).collection('obras').doc(String(obra.id))
+    .set(data)
+    .then(function() { setSyncStatus('&#10003; Guardado', 'ok'); })
+    .catch(function(e) { setSyncStatus('Sin conexi&#243;n - local', 'err'); guardarLocal(); });
+}
+
+function eliminarObraFirestore(id) {
+  db.collection('dispositivos').doc(DEVICE_ID).collection('obras').doc(String(id))
+    .delete().catch(function(){});
+}
+
+function cargarObras() {
+  setSyncStatus('Cargando...');
+  db.collection('dispositivos').doc(DEVICE_ID).collection('obras')
+    .get()
+    .then(function(snap) {
+      obras = [];
+      snap.forEach(function(d) {
+        var o = d.data();
+        if (!o.enviada || (Date.now() - o.tsEnviada) < 86400000) obras.push(o);
+      });
+      obras.sort(function(a,b){ return a.id - b.id; });
+      if (obras.length > 0) contadorId = Math.max.apply(null, obras.map(function(o){ return o.id; })) + 1;
+      var activas = obras.filter(function(o){ return !o.enviada; }).length;
+      setSyncStatus(activas > 0 ? '&#10003; ' + activas + ' obra(s) activa(s)' : '&#10003; Listo', 'ok');
+      render();
+    })
+    .catch(function(e) {
+      setSyncStatus('Sin conexi&#243;n - datos locales', 'err');
+      cargarLocal(); render();
+    });
+}
+
+function guardarLocal() {
+  try {
+    localStorage.setItem('obras_v3', JSON.stringify(obras.map(function(o){
+      return { id:o.id, direccion:o.direccion, horaInicio:o.horaInicio,
+               fotoAntes:o.fotoAntes, fotoDespues:o.fotoDespues,
+               enviada:o.enviada, tsEnviada:o.tsEnviada, gpsError:o.gpsError };
+    })));
+  } catch(e) {}
+}
+
+function cargarLocal() {
+  try { var g = localStorage.getItem('obras_v3'); if (g) obras = JSON.parse(g); } catch(e) {}
+}
+
+// ── RENDER ─────────────────────────────────────────────
+function render() {
+  var lista = document.getElementById('lista-obras');
+  var empty = document.getElementById('empty');
+  lista.innerHTML = '';
+  var visibles = obras.filter(function(o){ return !o.enviada; });
+  empty.style.display = visibles.length === 0 ? 'block' : 'none';
+  visibles.forEach(function(obra){ lista.appendChild(crearTarjeta(obra)); });
+}
+
+function crearTarjeta(obra) {
+  var div = document.createElement('div');
+  var listo = obra.fotoAntes && obra.fotoDespues && obra.direccion && obra.direccion.trim() !== '';
+  div.className = 'obra-card' + (listo ? ' completa' : '');
+  div.id = 'obra-' + obra.id;
+
+  var antesHtml = obra.fotoAntes
+    ? '<div class="foto-slot"><img class="foto-thumb" src="' + obra.fotoAntes + '"><button class="foto-retomar" onclick="retomar(' + obra.id + ',\'antes\')">&#128247; Cambiar</button><input type="file" id="file-' + obra.id + '-antes" accept="image/*" capture="environment" onchange="onFoto(this,' + obra.id + ',\'antes\')"></div>'
+    : '<div class="foto-slot"><button class="foto-btn" onclick="document.getElementById(\'file-' + obra.id + '-antes\').click()"><span class="ico">&#128247;</span>Foto ANTES</button><input type="file" id="file-' + obra.id + '-antes" accept="image/*" capture="environment" onchange="onFoto(this,' + obra.id + ',\'antes\')"></div>';
+
+  var despuesHtml = obra.fotoDespues
+    ? '<div class="foto-slot"><img class="foto-thumb" src="' + obra.fotoDespues + '"><button class="foto-retomar" onclick="retomar(' + obra.id + ',\'despues\')">&#128247; Cambiar</button><input type="file" id="file-' + obra.id + '-despues" accept="image/*" capture="environment" onchange="onFoto(this,' + obra.id + ',\'despues\')"></div>'
+    : '<div class="foto-slot"><button class="foto-btn" onclick="document.getElementById(\'file-' + obra.id + '-despues\').click()"><span class="ico">&#128247;</span>Foto DESPU&#201;S</button><input type="file" id="file-' + obra.id + '-despues" accept="image/*" capture="environment" onchange="onFoto(this,' + obra.id + ',\'despues\')"></div>';
+
+  var dirHtml = !obra.direccion
+    ? '<div class="dir-box" id="dirbox-' + obra.id + '">Obteniendo ubicaci&#243;n...</div><input class="dir-input" id="dirinput-' + obra.id + '" placeholder="Escrib&#237; la direcci&#243;n..." value="" style="display:none" oninput="onDirInput(' + obra.id + ',this.value)">'
+    : '<input class="dir-input" id="dirinput-' + obra.id + '" placeholder="Edit&#225; la direcci&#243;n..." value="' + obra.direccion.replace(/"/g,'&quot;') + '" oninput="onDirInput(' + obra.id + ',this.value)">';
+
+  div.innerHTML =
+    '<div class="obra-header"><div><div class="obra-num">Obra #' + obra.id + '</div>' +
+    '<div class="obra-dir" id="hdir-' + obra.id + '">' + (obra.direccion || 'Sin direcci&#243;n') + '</div></div>' +
+    '<div class="obra-hora">' + obra.horaInicio + '</div></div>' +
+    dirHtml +
+    '<div class="fotos-row">' + antesHtml + despuesHtml + '</div>' +
+    '<div class="obra-actions"><button class="btn-enviar-obra' + (listo ? ' activo' : '') + '" id="btn-env-' + obra.id + '" onclick="compartirObra(' + obra.id + ')">&#128279; Enviar</button>' +
+    '<button class="btn-eliminar-obra" onclick="eliminarObra(' + obra.id + ')">&#128465;</button></div>';
+
+  return div;
+}
+
+// ── DIRECCIÓN ──────────────────────────────────────────
+function onDirInput(id, val) {
+  var obra = obras.find(function(o){ return o.id === id; });
+  if (!obra) return;
+  obra.direccion = val;
+  var hdir = document.getElementById('hdir-' + id);
+  if (hdir) hdir.textContent = val || 'Sin direcci\u00f3n';
+  var listo = obra.fotoAntes && obra.fotoDespues && val && val.trim() !== '';
+  var btn = document.getElementById('btn-env-' + id);
+  if (btn) btn.className = 'btn-enviar-obra' + (listo ? ' activo' : '');
+  clearTimeout(obra._dirTimer);
+  obra._dirTimer = setTimeout(function(){ guardarObra(obra); }, 800);
+}
+
+// ── GPS ────────────────────────────────────────────────
+function obtenerUbicacion(id) {
+  if (!navigator.geolocation) { mostrarFallback(id); return; }
+  navigator.geolocation.getCurrentPosition(
+    function(pos){ geocodificar(id, pos.coords.latitude, pos.coords.longitude); },
+    function(){ mostrarFallback(id); },
+    { enableHighAccuracy: true, timeout: 12000 }
+  );
+}
+
+function geocodificar(id, lat, lon) {
+  fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&addressdetails=1')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var a = data.address || {};
+      var calle = a.road || a.pedestrian || '';
+      var numero = a.house_number || '';
+      var barrio = a.suburb || a.neighbourhood || '';
+      var ciudad = a.city || a.town || a.village || '';
+      var dir = calle + (numero ? ' ' + numero : '');
+      if (barrio) dir += ', ' + barrio;
+      if (ciudad) dir += ', ' + ciudad;
+      setDireccionGPS(id, dir || data.display_name);
+    })
+    .catch(function(){ mostrarFallback(id); });
+}
+
+function setDireccionGPS(id, texto) {
+  var obra = obras.find(function(o){ return o.id === id; });
+  if (!obra) return;
+  obra.direccion = texto;
+  var box = document.getElementById('dirbox-' + id);
+  if (box) box.style.display = 'none';
+  var inp = document.getElementById('dirinput-' + id);
+  if (inp) { inp.value = texto; inp.style.display = 'block'; }
+  var hdir = document.getElementById('hdir-' + id);
+  if (hdir) hdir.textContent = texto;
+  guardarObra(obra);
+}
+
+function mostrarFallback(id) {
+  var obra = obras.find(function(o){ return o.id === id; });
+  if (obra) obra.gpsError = true;
+  var box = document.getElementById('dirbox-' + id);
+  if (box) box.style.display = 'none';
+  var inp = document.getElementById('dirinput-' + id);
+  if (inp) { inp.style.display = 'block'; inp.focus(); }
+}
+
+// ── FOTOS ──────────────────────────────────────────────
+function onFoto(input, id, tipo) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var obra = obras.find(function(o){ return o.id === id; });
+    if (!obra) return;
+    if (tipo === 'antes') { obra.fotoAntes = e.target.result; obra._fileAntes = file; }
+    else { obra.fotoDespues = e.target.result; obra._fileDespues = file; }
+    guardarObra(obra);
+    render();
+  };
+  reader.readAsDataURL(file);
+}
+
+function retomar(id, tipo) { document.getElementById('file-' + id + '-' + tipo).click(); }
+
+// ── NUEVA OBRA ─────────────────────────────────────────
+function nuevaObra() {
+  var ahora = new Date();
+  var hora = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  var id = contadorId++;
+  var obra = { id: id, direccion: '', horaInicio: hora, fotoAntes: null, fotoDespues: null, enviada: false, gpsError: false };
+  obras.push(obra);
+  guardarObra(obra);
+  render();
+  obtenerUbicacion(id);
+  setTimeout(function() {
+    var el = document.getElementById('obra-' + id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+// ── COMPARTIR ──────────────────────────────────────────
+function b64aFile(base64, nombre) {
+  var arr = base64.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]);
+  var u8 = new Uint8Array(bstr.length);
+  for (var i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+  return new File([u8], nombre, { type: mime });
+}
+
+async function compartirObra(id) {
+  var obra = obras.find(function(o){ return o.id === id; });
+  if (!obra) return;
+  var ahora = new Date();
+  var fecha = ahora.toLocaleDateString('es-AR');
+  var horaFin = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  var texto = 'REGISTRO DE OBRA\nDireccion: ' + obra.direccion +
+    '\nInicio: ' + obra.horaInicio + 'hs  |  Fin: ' + horaFin + 'hs\nFecha: ' + fecha;
+
+  var fAntes   = obra._fileAntes   ? new File([obra._fileAntes],   'ANTES.jpg',   { type: obra._fileAntes.type })   : b64aFile(obra.fotoAntes,   'ANTES.jpg');
+  var fDespues = obra._fileDespues ? new File([obra._fileDespues], 'DESPUES.jpg', { type: obra._fileDespues.type }) : b64aFile(obra.fotoDespues, 'DESPUES.jpg');
+
+  try {
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [fAntes, fDespues] })) {
+      await navigator.share({ text: texto, files: [fAntes, fDespues] });
+    } else if (navigator.share) {
+      await navigator.share({ text: texto });
+    } else {
+      window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+    }
+    obra.enviada = true;
+    obra.tsEnviada = Date.now();
+    guardarObra(obra);
+    render();
+  } catch(e) {
+    if (e.name !== 'AbortError') alert('No se pudo compartir. Intent\u00e1 de nuevo.');
+  }
+}
+
+// ── ELIMINAR ───────────────────────────────────────────
+function eliminarObra(id) {
+  if (!confirm('Eliminar esta obra?')) return;
+  obras = obras.filter(function(o){ return o.id !== id; });
+  eliminarObraFirestore(id);
+  render();
+}
+
+// ── INIT ───────────────────────────────────────────────
+cargarObras();
+</script>
+</body>
+</html>

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Planificación Vial · Cuadrillas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Segoe UI', Arial, sans-serif; background: #0d1520; color: #dce8f5; }
+
+/* ─── VISTAS ─── */
+#vista-carga, #vista-mapa { display: none; height: 100dvh; flex-direction: column; }
+#vista-carga.activa, #vista-mapa.activa { display: flex; }
+
+/* ─── CARGA ─── */
+.carga-header {
+  background: #111d2e;
+  border-bottom: 2px solid #1e3a5f;
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+}
+.carga-header h1 { font-size: 16px; font-weight: 700; color: #7eb8f7; flex: 1; }
+.carga-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+
+.campo-grupo { display: flex; flex-direction: column; gap: 6px; }
+.campo-grupo label { font-size: 12px; font-weight: 600; color: #8aaac8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+input[type=text], textarea, select {
+  background: #111d2e;
+  border: 1.5px solid #1e3a5f;
+  border-radius: 8px;
+  color: #dce8f5;
+  font-size: 13px;
+  padding: 10px 12px;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input[type=text]:focus, textarea:focus { border-color: #4a90d9; }
+textarea { min-height: 260px; resize: vertical; line-height: 1.6; }
+
+.hint {
+  font-size: 11px; color: #4a6a8a; line-height: 1.5;
+  background: #0a1520; border-left: 3px solid #1e3a5f;
+  padding: 8px 10px; border-radius: 0 6px 6px 0;
+}
+
+.btn-primary {
+  background: #2563b0; color: #fff;
+  border: none; border-radius: 10px;
+  padding: 14px; font-size: 15px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: background 0.2s;
+  width: 100%;
+}
+.btn-primary:hover { background: #1a4f96; }
+.btn-primary:disabled { background: #1a2a3a; color: #3a5a7a; cursor: not-allowed; }
+
+.loading-msg {
+  text-align: center; padding: 20px;
+  font-size: 13px; color: #5a8ab0;
+  display: none;
+}
+.loading-msg.visible { display: block; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #2a4a6e; border-top-color: #4a90d9; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── MAPA ─── */
+.mapa-header {
+  background: #111d2e;
+  border-bottom: 2px solid #1e3a5f;
+  padding: 8px 14px;
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+}
+.mapa-titulo { font-size: 13px; font-weight: 700; color: #7eb8f7; flex: 1; min-width: 120px; }
+.semana-badge { font-size: 11px; color: #4a7a9a; background: #0a1520; border: 1px solid #1e3a5f; padding: 2px 8px; border-radius: 10px; }
+
+.mapa-controles {
+  background: #111d2e;
+  border-bottom: 1px solid #1e3a5f;
+  padding: 7px 14px;
+  display: flex; align-items: center; gap: 7px; flex-shrink: 0; flex-wrap: wrap;
+}
+
+.btn-cdr {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 20px;
+  border: 2px solid transparent;
+  font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+}
+.btn-a { background: #1a3a6e; border-color: #4a90d9; color: #7eb8f7; }
+.btn-a:hover { background: #1f4a8a; }
+.btn-a.off { background: #111d2e; border-color: #1e3a5f; color: #3a6a9a; }
+.btn-b { background: #5a1a1a; border-color: #c04040; color: #f08080; }
+.btn-b:hover { background: #6a2020; }
+.btn-b.off { background: #111d2e; border-color: #1e3a5f; color: #6a3a3a; }
+
+.btn-pdf {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 20px;
+  border: 2px solid #2a6a3a; background: #0a2a1a;
+  color: #5abf7a; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-pdf:hover { background: #0f3a22; }
+
+.btn-volver {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 20px;
+  border: 1px solid #1e3a5f; background: transparent;
+  color: #4a8ab0; font-size: 11px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-volver:hover { background: #0a1520; }
+
+.cnt-total { font-size: 11px; color: #4a7a9a; white-space: nowrap; }
+.cnt-total b { color: #7eb8f7; }
+
+#mapa-leaflet { flex: 1; }
+
+/* ─── PANEL LATERAL ─── */
+.panel {
+  position: absolute; top: 115px; right: 8px;
+  width: 210px; max-height: calc(100dvh - 145px);
+  background: rgba(13, 21, 32, 0.97);
+  border: 1px solid #1e3a5f; border-radius: 10px;
+  z-index: 900; overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+}
+.panel-hdr {
+  padding: 7px 10px; background: #111d2e;
+  font-size: 10px; font-weight: 700; color: #7eb8f7;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; user-select: none;
+}
+.panel-body { overflow-y: auto; flex: 1; }
+.panel-body::-webkit-scrollbar { width: 3px; }
+.panel-body::-webkit-scrollbar-thumb { background: #2a4a6e; border-radius: 2px; }
+
+.g-titulo {
+  padding: 5px 10px 3px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  position: sticky; top: 0; z-index: 1;
+}
+.g-a .g-titulo { background: #0a1830; color: #60a5fa; }
+.g-b .g-titulo { background: #1a0a0a; color: #f87171; }
+
+.item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.12s;
+}
+.item:hover { background: rgba(255,255,255,0.05); }
+.item.off { opacity: 0.35; }
+
+.dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot-a { background: #4a90d9; }
+.dot-b { background: #c04040; }
+.dot.off { background: #3a4a5a !important; }
+
+.item-nom { flex: 1; font-size: 10px; color: #b0c8e0; line-height: 1.3; }
+.item-num { font-size: 9px; color: #2a5a7a; font-weight: 700; }
+
+/* ─── POPUP ─── */
+.leaflet-popup-content-wrapper { background: #111d2e !important; border: 1px solid #2a4a6e !important; color: #dce8f5 !important; border-radius: 8px !important; box-shadow: 0 4px 16px rgba(0,0,0,0.7) !important; }
+.leaflet-popup-tip { background: #111d2e !important; }
+.leaflet-popup-content { margin: 10px 13px !important; min-width: 180px; }
+.pp-titulo { font-weight: 700; font-size: 13px; color: #7eb8f7; margin-bottom: 3px; }
+.pp-sub { font-size: 10px; color: #5a8ab0; margin-bottom: 7px; }
+.pp-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+.pp-ba { background: #1a3060; color: #60a5fa; }
+.pp-bb { background: #3a1010; color: #f87171; }
+.pp-btn { width: 100%; padding: 6px; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.pp-btn-on { background: #1a3a5e; color: #7eb8f7; }
+.pp-btn-off { background: #1a3a2a; color: #5abf7a; }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #1a3a5e; color: #7eb8f7; border: 1px solid #2a5a8e;
+  padding: 9px 18px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 480px) {
+  .panel { width: 175px; right: 5px; }
+  .mapa-titulo { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ VISTA CARGA ═══════════════ -->
+<div id="vista-carga" class="activa">
+  <div class="carga-header">
+    <h1>🛣️ Planificación Vial · Cuadrillas</h1>
+  </div>
+  <div class="carga-body">
+
+    <div class="campo-grupo">
+      <label>Semana / Período</label>
+      <input type="text" id="inp-semana" placeholder="Ej: 22/06 al 26/06/2025">
+    </div>
+
+    <div class="campo-grupo">
+      <label>Tipo de trabajo</label>
+      <input type="text" id="inp-tipo" placeholder="Ej: BACHEO - Zona Este" value="BACHEO - Zona Este">
+    </div>
+
+    <div class="campo-grupo">
+      <label>Texto de la planificación</label>
+      <div class="hint">
+        📋 Pegá el texto completo tal como lo tenés — con títulos, encabezados, numeración, "Pedido UI", estados, todo. La app detecta automáticamente las direcciones y descarta el resto.
+      </div>
+      <textarea id="inp-dirs" placeholder="Pegá acá el texto completo de la planificación..."></textarea>
+    </div>
+
+    <div class="campo-grupo">
+      <label>Localidad (para geocodificación)</label>
+      <input type="text" id="inp-localidad" placeholder="Ej: Lanús, Buenos Aires, Argentina" value="Lanús, Buenos Aires, Argentina">
+    </div>
+
+    <div class="loading-msg" id="loading-msg">
+      <span class="spinner"></span> Geolocalizando direcciones… <span id="loading-prog"></span>
+    </div>
+
+    <button class="btn-primary" id="btn-generar" onclick="iniciarCarga()">
+      📍 Ubicar en mapa y dividir cuadrillas
+    </button>
+
+  </div>
+</div>
+
+<!-- ═══════════════ VISTA MAPA ═══════════════ -->
+<div id="vista-mapa">
+  <div class="mapa-header">
+    <div class="mapa-titulo" id="mapa-titulo">Planificación</div>
+    <div class="semana-badge" id="semana-badge"></div>
+    <button class="btn-volver" onclick="volverCarga()">← Cargar nueva</button>
+  </div>
+  <div class="mapa-controles">
+    <button class="btn-cdr btn-a" id="btn-ca" onclick="toggleCuadrilla('A')">🔵 Cuadrilla A <span id="cnt-a"></span></button>
+    <button class="btn-cdr btn-b" id="btn-cb" onclick="toggleCuadrilla('B')">🔴 Cuadrilla B <span id="cnt-b"></span></button>
+    <div class="cnt-total">Activos: <b id="cnt-tot">0</b></div>
+    <button class="btn-pdf" onclick="exportarPDF()">📄 Imprimir PDF</button>
+  </div>
+  <div id="mapa-leaflet"></div>
+</div>
+
+<div class="panel" id="panel">
+  <div class="panel-hdr" onclick="togglePanel()">
+    📋 Lista de puntos <span id="p-arrow">▲</span>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Estado global ───
+let puntos = [];       // { id, n, dir, c, lat, lng, activo }
+let markers = {};
+let map = null;
+let visA = true, visB = true;
+let panelOpen = true;
+let semanaTexto = '';
+let tipoTexto = '';
+
+// ─── Geocodificación ───
+// Photon (komoot) permite CORS desde el navegador; Nominatim se usa como fallback.
+async function geocodificar(dir, localidad) {
+  const query = dir + ', ' + localidad;
+
+  // 1) Photon — CORS habilitado, bbox zona GBA sur
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://photon.komoot.io/api/?q=${q}&limit=3&lang=es`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.features && d.features.length > 0) {
+      const f = d.features.find(ft => {
+        const p = ft.properties;
+        return p.countrycode === 'AR' || p.country === 'Argentina';
+      }) || d.features[0];
+      const [lng, lat] = f.geometry.coordinates;
+      return { lat, lng };
+    }
+  } catch(e) { console.warn('Photon error:', e); }
+
+  // 2) Nominatim fallback
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=ar`;
+    const r = await fetch(url, { headers: { 'Accept-Language': 'es', 'User-Agent': 'PlanVialLanus/1.0' } });
+    const d = await r.json();
+    if (d && d[0]) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+  } catch(e) { console.warn('Nominatim error:', e); }
+
+  return null;
+}
+
+// ─── Algoritmo de división en 2 grupos por cercanía (K-means simple) ───
+function dividirGrupos(pts) {
+  if (pts.length === 0) return;
+  // Ordenar por longitud (oeste→este) para semilla inicial
+  const sorted = [...pts].sort((a,b) => a.lng - b.lng);
+  // Centroide inicial: mitad izquierda y mitad derecha
+  const mid = Math.floor(sorted.length / 2);
+  let cA = { lat: sorted[0].lat, lng: sorted[0].lng };
+  let cB = { lat: sorted[sorted.length-1].lat, lng: sorted[sorted.length-1].lng };
+
+  for (let iter = 0; iter < 10; iter++) {
+    pts.forEach(p => {
+      const dA = dist(p, cA), dB = dist(p, cB);
+      p.c = dA <= dB ? 'A' : 'B';
+    });
+    const ga = pts.filter(p=>p.c==='A');
+    const gb = pts.filter(p=>p.c==='B');
+    if (ga.length) cA = centroide(ga);
+    if (gb.length) cB = centroide(gb);
+  }
+
+  // Balancear: si un grupo tiene más de 2 extra, mover puntos frontera
+  let ga = pts.filter(p=>p.c==='A');
+  let gb = pts.filter(p=>p.c==='B');
+  while (Math.abs(ga.length - gb.length) > 1) {
+    if (ga.length > gb.length) {
+      // mover el punto de A más cercano al centroide de B
+      const cB2 = centroide(gb.length ? gb : pts);
+      const sorted2 = ga.slice().sort((a,b) => dist(a,cB2) - dist(b,cB2));
+      sorted2[0].c = 'B';
+    } else {
+      const cA2 = centroide(ga.length ? ga : pts);
+      const sorted2 = gb.slice().sort((a,b) => dist(a,cA2) - dist(b,cA2));
+      sorted2[0].c = 'A';
+    }
+    ga = pts.filter(p=>p.c==='A');
+    gb = pts.filter(p=>p.c==='B');
+  }
+
+  // Renumerar por cuadrilla
+  let nA = 1, nB = 1;
+  pts.forEach(p => { p.num = p.c === 'A' ? nA++ : nB++; });
+}
+
+function dist(a, b) {
+  return Math.sqrt((a.lat-b.lat)**2 + (a.lng-b.lng)**2);
+}
+function centroide(arr) {
+  return {
+    lat: arr.reduce((s,p)=>s+p.lat,0)/arr.length,
+    lng: arr.reduce((s,p)=>s+p.lng,0)/arr.length
+  };
+}
+
+// ─── Parser de texto libre ───
+function parsearDirecciones(texto) {
+  // Palabras clave que indican que una línea es un encabezado/título, no una dirección
+  const esEncabezado = l => {
+    const u = l.toUpperCase();
+    // Líneas que empiezan con número seguido de punto/guión/paréntesis → SON direcciones
+    if (/^\d+[\.\-\)]\s+\S/.test(l)) return false;
+    // Líneas muy cortas sin números ni calles → encabezado
+    if (l.length < 5) return true;
+    // Patrones típicos de encabezados
+    if (/^(PLANIFICACI[OÓ]N|PLANTA|BACHEO|LOMO|TOMADO|TRABAJO|ZONA|SECCI[OÓ]N|CUADRILLA|JEFE|FECHA|SEMANA|\*+|-+|=+)/.test(u)) return true;
+    // Sin números y sin palabras típicas de calle → encabezado
+    const tieneCalle = /\d|esq\.|y |entre |av\.|gral\.|cnel\.|pres\.|dr\.|ing\./i.test(l);
+    if (!tieneCalle && l.length < 40 && !/^\d/.test(l)) return true;
+    return false;
+  };
+
+  return texto.split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !esEncabezado(l))
+    .map(l => {
+      // Quitar numeración al inicio: "1.", "1-", "1)"
+      let dir = l.replace(/^\d+[\.\-\)]\s*/, '');
+      // Quitar sufijos: "- Pedido UI - Bache", "- En ejecución", etc.
+      dir = dir.replace(/\s*[-–]\s*(Pedido\s+UI\s*[-–]?\s*)?((en\s+ejecuci[oó]n|bache|bacheo|bocacalle|reparaci[oó]n|TJ|loma|lomo)[^$]*)?$/i, '').trim();
+      // Quitar punto final
+      dir = dir.replace(/\.$/, '').trim();
+      return { original: l, dir };
+    })
+    .filter(x => x.dir.length > 3);
+}
+
+// ─── Iniciar carga ───
+async function iniciarCarga() {
+  const textoCompleto = document.getElementById('inp-dirs').value.trim();
+  const localidad = document.getElementById('inp-localidad').value.trim() || 'Lanús, Buenos Aires, Argentina';
+  semanaTexto = document.getElementById('inp-semana').value.trim();
+  tipoTexto = document.getElementById('inp-tipo').value.trim();
+
+  if (!textoCompleto) { toast('⚠️ Pegá el texto de la planificación'); return; }
+
+  // Auto-detectar semana si está en el texto
+  if (!semanaTexto) {
+    const m = textoCompleto.match(/(\d{1,2}\/\d{2})\s+[aA][lL]\s+(\d{1,2}\/\d{2}(?:\/\d{2,4})?)/);
+    if (m) {
+      semanaTexto = m[0];
+      document.getElementById('inp-semana').value = semanaTexto;
+    }
+  }
+
+  const parsed = parsearDirecciones(textoCompleto);
+
+  if (parsed.length === 0) { toast('⚠️ No se encontraron direcciones en el texto'); return; }
+
+  const btn = document.getElementById('btn-generar');
+  btn.disabled = true;
+  const loadMsg = document.getElementById('loading-msg');
+  loadMsg.classList.add('visible');
+
+  const dirs = parsed.map(p => p.dir);
+  const lineas = parsed.map(p => p.original);
+
+  puntos = [];
+  let ok = 0, fallidos = [];
+  for (let i = 0; i < dirs.length; i++) {
+    const prog = document.getElementById('loading-prog');
+    prog.textContent = `(${i+1}/${dirs.length}) ${dirs[i].substring(0,35)}…`;
+    const geo = await geocodificar(dirs[i], localidad);
+    if (geo) {
+      puntos.push({ id: i+1, n: dirs[i], dir: lineas[i], lat: geo.lat, lng: geo.lng, c: 'A', num: 0, activo: true });
+      ok++;
+    } else {
+      fallidos.push(dirs[i]);
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  loadMsg.classList.remove('visible');
+  btn.disabled = false;
+
+  if (puntos.length === 0) {
+    toast('❌ No se pudo geolocalizar ninguna dirección. Verificá la conexión a internet.');
+    return;
+  }
+
+  dividirGrupos(puntos);
+  mostrarMapa();
+  const msg = fallidos.length > 0
+    ? `✅ ${ok}/${dirs.length} ubicados. No encontrados: ${fallidos.join(', ')}`
+    : `✅ ${ok} puntos ubicados`;
+  toast(msg);
+}
+
+// ─── Mostrar mapa ───
+function mostrarMapa() {
+  document.getElementById('vista-carga').classList.remove('activa');
+  document.getElementById('vista-mapa').classList.add('activa');
+  document.getElementById('panel').style.display = 'flex';
+  document.getElementById('mapa-titulo').textContent = tipoTexto || 'Planificación Vial';
+  document.getElementById('semana-badge').textContent = semanaTexto ? `📅 ${semanaTexto}` : '';
+
+  if (!map) {
+    map = L.map('mapa-leaflet', { zoomControl: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OSM © CARTO', maxZoom: 19
+    }).addTo(map);
+  } else {
+    Object.values(markers).forEach(m => m.remove());
+    markers = {};
+  }
+
+  const lats = puntos.map(p=>p.lat), lngs = puntos.map(p=>p.lng);
+  const bounds = [[Math.min(...lats)-0.003, Math.min(...lngs)-0.003],[Math.max(...lats)+0.003, Math.max(...lngs)+0.003]];
+  map.fitBounds(bounds);
+
+  puntos.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) })
+      .addTo(map)
+      .bindPopup(popupHTML(p), { maxWidth: 230 });
+    markers[p.id] = m;
+  });
+
+  // Reiniciar panel
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '<div class="g-a"></div><div class="g-b"></div>';
+  visA = true; visB = true;
+  document.getElementById('btn-ca').classList.remove('off');
+  document.getElementById('btn-cb').classList.remove('off');
+
+  actualizarContadores();
+  renderLista();
+}
+
+function volverCarga() {
+  document.getElementById('vista-mapa').classList.remove('activa');
+  document.getElementById('vista-carga').classList.add('activa');
+  document.getElementById('panel').style.display = 'none';
+}
+
+// ─── Iconos ───
+const COLOR = { A: '#4a90d9', B: '#c04040' };
+function makeIcon(p) {
+  const color = p.activo ? COLOR[p.c] : '#3a4a5a';
+  const label = p.activo ? p.num : '✓';
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:26px;height:26px;background:${color};border:2px solid ${p.activo?'rgba(255,255,255,0.7)':'#4a5a6a'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${p.activo?'#fff':'#8a9aaa'};box-shadow:0 2px 8px rgba(0,0,0,0.6);opacity:${p.activo?1:0.4}">${label}</div>`,
+    iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-15]
+  });
+}
+
+// ─── Popup ───
+function popupHTML(p) {
+  const on = p.activo;
+  return `<div class="pp-titulo">#${p.num} · ${p.n}</div>
+    <span class="pp-badge pp-b${p.c.toLowerCase()}">Cuadrilla ${p.c}</span>
+    <div class="pp-sub">${p.dir}</div>
+    <button class="pp-btn ${on?'pp-btn-on':'pp-btn-off'}" onclick="togglePunto(${p.id})">
+      ${on ? '⬛ Marcar como hecho' : '🔄 Reactivar punto'}
+    </button>`;
+}
+
+// ─── Toggle punto ───
+function togglePunto(id) {
+  const p = puntos.find(x=>x.id===id);
+  p.activo = !p.activo;
+  markers[id].setIcon(makeIcon(p));
+  markers[id].setPopupContent(popupHTML(p));
+  map.closePopup();
+  setTimeout(() => markers[id].openPopup(), 50);
+  actualizarContadores();
+  renderLista();
+}
+
+// ─── Toggle cuadrilla ───
+function toggleCuadrilla(c) {
+  if (c === 'A') visA = !visA;
+  else visB = !visB;
+  const vis = c === 'A' ? visA : visB;
+  puntos.filter(p=>p.c===c).forEach(p => {
+    if (vis) markers[p.id].addTo(map);
+    else markers[p.id].remove();
+  });
+  document.getElementById(`btn-c${c.toLowerCase()}`).classList.toggle('off', !vis);
+  actualizarContadores();
+}
+
+// ─── Contadores ───
+function actualizarContadores() {
+  const ga = puntos.filter(p=>p.c==='A');
+  const gb = puntos.filter(p=>p.c==='B');
+  const actA = ga.filter(p=>p.activo).length;
+  const actB = gb.filter(p=>p.activo).length;
+  document.getElementById('cnt-a').textContent = `(${actA}/${ga.length})`;
+  document.getElementById('cnt-b').textContent = `(${actB}/${gb.length})`;
+  document.getElementById('cnt-tot').textContent = (visA?actA:0) + (visB?actB:0);
+}
+
+// ─── Lista lateral ───
+function renderLista() {
+  const body = document.getElementById('panel-body');
+  ['A','B'].forEach(c => {
+    const g = body.querySelector(`.g-${c.toLowerCase()}`);
+    const pts = puntos.filter(p=>p.c===c);
+    let h = `<div class="g-titulo">Cuadrilla ${c} (${pts.length})</div>`;
+    pts.forEach(p => {
+      h += `<div class="item ${p.activo?'':'off'}" onclick="irA(${p.id})">
+        <div class="dot dot-${c.toLowerCase()} ${p.activo?'':'off'}"></div>
+        <div class="item-nom">${p.n}</div>
+        <div class="item-num">${p.num}</div>
+      </div>`;
+    });
+    g.innerHTML = h;
+  });
+}
+
+function irA(id) {
+  const p = puntos.find(x=>x.id===id);
+  map.setView([p.lat, p.lng], 17);
+  markers[id].openPopup();
+}
+
+// ─── Panel ───
+function togglePanel() {
+  panelOpen = !panelOpen;
+  document.getElementById('panel-body').style.display = panelOpen ? 'block' : 'none';
+  document.getElementById('p-arrow').textContent = panelOpen ? '▲' : '▼';
+}
+
+// ─── Toast ───
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── Exportar PDF ───
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const W = 210, M = 14;
+  const azul = [37, 99, 176];
+  const rojo = [180, 40, 40];
+  const gris = [60, 80, 100];
+  const bgA = [230, 240, 255];
+  const bgB = [255, 230, 230];
+
+  function cabecera(cuadrilla) {
+    doc.setFillColor(20, 30, 50);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15); doc.setTextColor(126, 184, 247);
+    doc.text('MUNICIPALIDAD DE LANÚS', M, 10);
+    doc.setFontSize(11); doc.setTextColor(200, 220, 240);
+    doc.text('Dirección de Ejecución en Red Vial', M, 17);
+    doc.setFontSize(10); doc.setTextColor(90, 130, 160);
+    doc.text(tipoTexto || 'Planificación Vial', M, 23);
+    // semana + fecha
+    const hoy = new Date().toLocaleDateString('es-AR');
+    doc.setFontSize(9); doc.setTextColor(90, 130, 160);
+    doc.text(`Semana: ${semanaTexto || '—'}   |   Emitido: ${hoy}`, W - M, 23, { align: 'right' });
+  }
+
+  function tituloCuadrilla(c, y) {
+    const color = c === 'A' ? azul : rojo;
+    const bg = c === 'A' ? bgA : bgB;
+    doc.setFillColor(...bg);
+    doc.rect(M, y, W - M*2, 9, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...color);
+    const pts = puntos.filter(p=>p.c===c);
+    const pend = pts.filter(p=>p.activo).length;
+    doc.text(`CUADRILLA ${c}   ·   ${pts.length} PUNTOS   (${pend} pendientes / ${pts.length - pend} realizados)`, M + 4, y + 6.2);
+    return y + 9;
+  }
+
+  function tabla(cuadrilla, startY) {
+    const pts = puntos.filter(p=>p.c===cuadrilla);
+    const color = cuadrilla === 'A' ? azul : rojo;
+    let y = startY + 5;
+
+    // encabezado tabla
+    doc.setFillColor(...color);
+    doc.rect(M, y, W-M*2, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+    doc.text('#', M+3, y+5);
+    doc.text('DIRECCIÓN', M+12, y+5);
+    doc.text('ESTADO', W-M-22, y+5);
+    y += 7;
+
+    pts.forEach((p, i) => {
+      if (y > 270) { doc.addPage(); cabecera(); y = 35; }
+      const bg = i % 2 === 0 ? [245,248,252] : [255,255,255];
+      doc.setFillColor(...bg);
+      doc.rect(M, y, W-M*2, 8, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5); doc.setTextColor(30,50,70);
+      doc.text(String(p.num), M+3, y+5.5);
+      // truncar si es muy larga
+      const nombre = p.n.length > 58 ? p.n.substring(0,55)+'…' : p.n;
+      doc.text(nombre, M+12, y+5.5);
+      // estado
+      if (p.activo) {
+        doc.setTextColor(37,99,176);
+        doc.text('Pendiente', W-M-22, y+5.5);
+      } else {
+        doc.setTextColor(20,140,60);
+        doc.text('✓ Realizado', W-M-22, y+5.5);
+      }
+      // línea separadora
+      doc.setDrawColor(200,210,220);
+      doc.line(M, y+8, W-M, y+8);
+      y += 8;
+    });
+
+    return y + 4;
+  }
+
+  // ─ Página 1 ─
+  cabecera('A');
+  let y = 34;
+  y = tituloCuadrilla('A', y);
+  y = tabla('A', y);
+
+  y += 6;
+  if (y > 240) { doc.addPage(); cabecera('B'); y = 34; }
+  y = tituloCuadrilla('B', y);
+  tabla('B', y);
+
+  // Pie de página en todas las páginas
+  const total = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(120, 140, 160);
+    doc.text(`Página ${i} de ${total}   ·   Planificación Vial · Municipalidad de Lanús`, W/2, 290, { align: 'center' });
+  }
+
+  const filename = `planificacion_${(semanaTexto||'semana').replace(/\//g,'-').replace(/\s/g,'_')}.pdf`;
+  doc.save(filename);
+  toast('📄 PDF descargado');
+}
+
+// Init
+document.getElementById('panel').style.display = 'none';
+</script>
+</body>
+</html>

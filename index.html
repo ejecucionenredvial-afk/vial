@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sistema de Planificación Operativa - Corralón Municipal</title>
+<style>
+  :root{
+    --bg-light:#eef0f2;
+    --bg-white:#ffffff;
+    --title-bar:#474747;
+    --title-text:#f3f3f3;
+    --accent-teal:#46c2dc;
+    --accent-teal-dark:#1f8fab;
+    --accent-navy:#1e3a5f;
+    --accent-maroon:#7a3b42;
+    --text-dark:#2b2b2b;
+    --text-muted:#6e6e6e;
+    --tile-hover:#eaf7fb;
+    --tile-border-active:#2e86c1;
+    --footer-bg:#3c3c3c;
+    --footer-text:#c9c9c9;
+    --locked-overlay:rgba(255,255,255,0.55);
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    height:100%;
+    background:#cfd3d6;
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .window{
+    width:1010px;
+    max-width:100%;
+    background:var(--bg-white);
+    border:1px solid #b9b9b9;
+    box-shadow:0 12px 32px rgba(0,0,0,0.25);
+    overflow:hidden;
+  }
+
+  /* ---------- Title bar ---------- */
+  .titlebar{
+    background:var(--title-bar);
+    color:var(--title-text);
+    height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    letter-spacing:.2px;
+    position:relative;
+    user-select:none;
+    padding:0 130px 0 8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .titlebar .controls{
+    position:absolute;
+    right:0;top:0;
+    height:100%;
+    display:flex;
+  }
+  .titlebar .controls button{
+    width:42px;height:100%;
+    background:transparent;
+    border:none;
+    border-left:1px solid rgba(255,255,255,0.08);
+    color:#dddddd;
+    cursor:pointer;
+    font-size:13px;
+  }
+  .titlebar .controls button:hover{background:rgba(255,255,255,0.12);}
+  .titlebar .controls button.close:hover{background:#c0392b;color:#fff;}
+
+  .auth-gate{position:fixed;inset:0;background:#1a3a5c;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+  .auth-box{background:#fff;border-radius:12px;padding:32px 28px;max-width:380px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:Segoe UI,Arial,sans-serif;}
+  .auth-box h2{font-size:15px;color:#1a3a5c;text-align:center;margin-bottom:18px;}
+  .auth-box h3{font-size:14px;color:#1a3a5c;margin-bottom:12px;}
+  .auth-box label{display:block;font-size:12.5px;color:#445;margin-top:9px;margin-bottom:4px;}
+  .auth-box input{width:100%;padding:9px 10px;border:1px solid #c8d4e0;border-radius:6px;font-size:13.5px;box-sizing:border-box;}
+  .auth-box button{width:100%;justify-content:center;margin-top:14px;padding:10px;border:none;border-radius:6px;background:#1a3a5c;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .auth-box button.btn-o{background:#fff;color:#1a3a5c;border:1px solid #c8d4e0;}
+  .auth-box p{font-size:12.5px;text-align:center;margin-top:12px;color:#667;}
+  .auth-box a{color:#2c5f8a;font-weight:600;cursor:pointer;}
+  .auth-error{color:#c0392b;font-size:12px;margin-top:8px;text-align:center;min-height:14px;}
+  .hdr-user{font-size:11.5px;color:#fff;opacity:.85;cursor:pointer;margin-right:8px;}
+
+  /* ---------- Header ---------- */
+  .header{
+    background:linear-gradient(120deg,#ffffff 0%,#ffffff 35%,#e9ebec 70%,#dfe2e4 100%);
+    padding:20px 28px 16px 28px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+    border-bottom:1px solid #e2e2e2;
+  }
+  .header-icon{
+    width:46px;height:46px;border-radius:10px;
+    background:var(--accent-navy);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:2px;
+  }
+  .header-icon svg{width:26px;height:26px;color:#fff;}
+  .header-title{font-size:16px;font-weight:700;color:var(--accent-navy);}
+  .header-sub{font-size:10px;font-weight:600;color:var(--accent-maroon);letter-spacing:1.5px;}
+
+  /* ---------- Grid ---------- */
+  .grid-wrap{
+    background:linear-gradient(160deg,#fbfbfb 0%,#eef0f1 100%);
+    padding:20px 24px 26px 24px;
+  }
+  .section-title{
+    font-size:9.5px;font-weight:700;color:var(--accent-maroon);
+    letter-spacing:.5px;text-align:center;margin:0 0 12px;
+  }
+  .section-title:not(:first-child){margin-top:4px;}
+  .section-divider{height:1px;background:#dfe2e4;margin:14px 0;}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px 6px;
+    justify-items:center;
+  }
+  .tile{
+    background:transparent;
+    border:1px solid transparent;
+    border-radius:2px;
+    padding:10px 6px 12px 6px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    text-align:center;
+    text-decoration:none;
+    position:relative;
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .tile:hover .icon-box{filter:brightness(1.08);}
+  .tile.selected .icon-box{box-shadow:0 0 0 2px var(--tile-border-active);}
+  .tile .icon-box{
+    width:44px;height:44px;border-radius:50%;
+    background:var(--accent-teal-dark);
+    display:flex;align-items:center;justify-content:center;
+    transition:filter .12s ease, box-shadow .12s ease;
+  }
+  .tile.sec-seguimiento .icon-box{background:var(--accent-maroon);}
+  .tile .icon-box svg{width:22px;height:22px;color:#fff;}
+  .tile .label{
+    font-size:10.5px;
+    line-height:1.25;
+    color:var(--text-dark);
+    font-weight:500;
+  }
+
+  .lock{
+    position:absolute;
+    top:6px;right:14px;
+    width:14px;height:14px;
+    color:#aeb4b7;
+  }
+
+  /* ---------- Footer ---------- */
+  .footer{
+    background:var(--footer-bg);
+    color:var(--footer-text);
+    font-size:11.5px;
+    padding:7px 18px;
+    display:flex;
+    justify-content:space-between;
+    letter-spacing:.2px;
+  }
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed;
+    bottom:26px;left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:#2b2b2b;
+    color:#f1f1f1;
+    padding:11px 18px;
+    border-radius:4px;
+    font-size:13px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.3);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    max-width:340px;
+    text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  .toast .tag{color:var(--accent-teal);font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="auth-gate" id="authGate">
+  <div class="auth-box">
+    <h2>Dirección de Ejecución en Red Vial<br><small style="font-weight:400;opacity:.7;">Municipalidad de Lanús</small></h2>
+
+    <div id="authLoading">Cargando...</div>
+
+    <div id="authLoginForm" style="display:none;">
+      <h3>Iniciar sesión</h3>
+      <label>Email</label><input type="text" id="li-email" autocomplete="username">
+      <label>Contraseña</label><input type="password" id="li-pass" autocomplete="current-password">
+      <button onclick="hacerLogin()">Entrar</button>
+      <div class="auth-error" id="authError"></div>
+      <p>¿No tenés cuenta? <a onclick="mostrarSignup()">Crear una</a></p>
+    </div>
+
+    <div id="authSignupForm" style="display:none;">
+      <h3>Crear cuenta</h3>
+      <label>Nombre</label><input type="text" id="su-nombre">
+      <label>Email</label><input type="text" id="su-email" autocomplete="username">
+      <label>Contraseña</label><input type="password" id="su-pass" autocomplete="new-password">
+      <button onclick="hacerSignup()">Crear cuenta</button>
+      <div class="auth-error" id="authError2"></div>
+      <p>¿Ya tenés cuenta? <a onclick="mostrarLogin()">Iniciar sesión</a></p>
+    </div>
+
+    <div id="authPending" style="display:none;">
+      <p>Tu cuenta está esperando aprobación del administrador. Avisale a Diego que ya te registraste.</p>
+      <button class="btn-o" onclick="hacerLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div class="window">
+
+  <div class="titlebar">
+    Sistema de Planificación Operativa - Corralón Municipal
+    <div class="controls">
+      <span class="hdr-user" id="hdrUsuario" onclick="hacerLogout()" title="Click para cerrar sesión"></span>
+      <button title="Minimizar">&#x2212;</button>
+      <button title="Maximizar">&#x25A1;</button>
+      <button class="close" title="Cerrar" onclick="showToast('Cerrá la pestaña del navegador para salir.')">&#x2715;</button>
+    </div>
+  </div>
+
+  <div class="header">
+    <div class="header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20l4-14h8l4 14" stroke-linejoin="round"/><path d="M9 20l1.5-6M15 20l-1.5-6" stroke-linejoin="round"/><line x1="12" y1="7" x2="12" y2="9.5" stroke-linecap="round"/><line x1="10.5" y1="11.5" x2="13.5" y2="11.5" stroke-linecap="round"/></svg></div>
+    <div class="header-title">Dirección de Ejecución en Red Vial</div>
+    <div class="header-sub">MUNICIPALIDAD DE LANÚS</div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="section-title">Operativa</div>
+    <div class="grid" id="gridOperativa"></div>
+    <div class="section-divider"></div>
+    <div class="section-title">Seguimiento</div>
+    <div class="grid" id="gridSeguimiento"></div>
+  </div>
+
+  <div class="footer">
+    <span>Datos: Firebase (en la nube) + USB local</span>
+    <span>Versión: 1.0</span>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"><span class="tag"></span> <span id="toastMsg"></span></div>
+
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="4" x2="9" y2="20" stroke="currentColor" stroke-width="1.6"/><line x1="15" y1="4" x2="15" y2="20" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="M12 21s7-6.6 7-12a7 7 0 1 0-14 0c0 5.4 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.6 14.8c2.6.3 4.4 2.2 4.4 5.2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-images" viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 15l3.5-3.5L11 14l3-3.5L19 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4h14" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5-9 5-9-5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 8v9l9 5 9-5V8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 13v9" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8.5" y="2.4" width="7" height="3.2" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 12.5l2.3 2.3L15.5 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-calclock" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3" y1="9.5" x2="17" y2="9.5" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="17" r="4.4" fill="#fff" stroke="currentColor" stroke-width="1.6"/><path d="M18 14.6V17l1.6 1.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 4v5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 8v4.5l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3L2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17.5" r="1" fill="currentColor"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 17l4.5-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17" r="1.4" fill="currentColor"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><line x1="9.5" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1.4"/><line x1="9.5" y1="15.5" x2="16" y2="15.5" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.5 20c0-4 3.4-6.6 7.5-6.6s7.5 2.6 7.5 6.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 7h11v9H2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 10h4l3.5 3v3H13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="17.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3.5v2.4M12 18.1v2.4M20.5 12h-2.4M5.9 12H3.5M17.8 6.2l-1.7 1.7M7.9 16.1l-1.7 1.7M17.8 17.8l-1.7-1.7M7.9 7.9 6.2 6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 17 9a4 4 0 0 1 .5 7.94" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 12v6M9.5 15.5 12 18l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.3 9.4a2.7 2.7 0 1 1 4 2.4c-.9.5-1.3 1-1.3 2.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17.3" r="0.9" fill="currentColor"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="12" y1="10.6" x2="12" y2="16.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1" fill="currentColor"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+</defs>
+</svg>
+
+<script type="module">
+// ══════════════════════════════════
+// FIREBASE — setup
+// ══════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+  doc, getDoc, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCiQuc-g5fNFdPUqPO1FC8xMbDyZGwn2u8",
+  authDomain: "ventana-integradora.firebaseapp.com",
+  projectId: "ventana-integradora",
+  storageBucket: "ventana-integradora.firebasestorage.app",
+  messagingSenderId: "263265819564",
+  appId: "1:263265819564:web:e7e7583eb4fefe9bdff809"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+setPersistence(auth, browserSessionPersistence); // pedir login de nuevo si se cierra el navegador
+const db    = initializeFirestore(fbApp, {
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+});
+
+let currentUser = null;
+
+function setAuthView(view){
+  ['authLoading','authLoginForm','authSignupForm','authPending'].forEach(id=>{
+    document.getElementById(id).style.display = (id===view) ? 'block' : 'none';
+  });
+}
+function mostrarSignup(){ setAuthView('authSignupForm'); }
+function mostrarLogin(){ setAuthView('authLoginForm'); }
+
+function traducirErrorAuth(code){
+  const m={
+    'auth/invalid-email':'Email inválido.',
+    'auth/user-not-found':'No existe una cuenta con ese email.',
+    'auth/wrong-password':'Contraseña incorrecta.',
+    'auth/invalid-credential':'Email o contraseña incorrectos.',
+    'auth/email-already-in-use':'Ya existe una cuenta con ese email.',
+    'auth/weak-password':'La contraseña es muy débil (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Demasiados intentos. Probá de nuevo en unos minutos.',
+    'auth/network-request-failed':'Sin conexión a internet. Probá de nuevo.',
+  };
+  return m[code] || ('Ocurrió un error ('+code+'). Probá de nuevo.');
+}
+
+async function hacerLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const err=document.getElementById('authError'); err.textContent='';
+  if(!email||!pass){ err.textContent='Completá email y contraseña.'; return; }
+  try{ await signInWithEmailAndPassword(auth,email,pass); }
+  catch(e){ err.textContent=traducirErrorAuth(e.code); }
+}
+
+async function hacerSignup(){
+  const nombre=document.getElementById('su-nombre').value.trim();
+  const email=document.getElementById('su-email').value.trim();
+  const pass=document.getElementById('su-pass').value;
+  const err=document.getElementById('authError2'); err.textContent='';
+  if(!nombre||!email||!pass){ err.textContent='Completá todos los campos.'; return; }
+  if(pass.length<6){ err.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+  try{
+    const cred=await createUserWithEmailAndPassword(auth,email,pass);
+    await setDoc(doc(db,'usuarios',cred.user.uid),{
+      email, nombre, rol:'usuario', aprobado:false, creadoEn:serverTimestamp()
+    });
+  }catch(e){ err.textContent=traducirErrorAuth(e.code); }
+}
+
+function hacerLogout(){
+  if(!confirm('¿Cerrar sesión?')) return;
+  signOut(auth);
+}
+
+const modulesOperativa = [
+  {label:"Planificación\nVial", icon:"i-grid", file:"PlanificacionVial.html"},
+  {label:"Gestor de\nObras", icon:"i-camera", file:"GestorObras.html"},
+  {label:"Mapa de\nObras", icon:"i-map", file:"MapaObras.html"},
+  {label:"Cronograma", icon:"i-calclock", file:"Cronograma.html"},
+];
+
+const modulesSeguimiento = [
+  {label:"Histórico de\nObras", icon:"i-history", file:"HistoricoObras.html"},
+  {label:"Reportes", icon:"i-chart", file:"Reportes.html"},
+  {label:"Indicadores", icon:"i-gauge", file:"Indicadores.html"},
+];
+
+function renderSeccion(modules, gridId, seccionClase, marcarPrimeraComoSeleccionada){
+  const grid = document.getElementById(gridId);
+  modules.forEach((m, idx) => {
+    const tile = document.createElement('a');
+    tile.className = 'tile active' + (seccionClase ? ' ' + seccionClase : '');
+    tile.href = m.file;
+    if(marcarPrimeraComoSeleccionada && idx === 0) tile.classList.add('selected');
+
+    tile.innerHTML = `
+      <div class="icon-box"><svg><use href="#${m.icon}"/></svg></div>
+      <div class="label">${m.label.replace('\n','<br>')}</div>
+    `;
+
+    tile.addEventListener('click', () => {
+      document.querySelectorAll('.tile').forEach(t => t.classList.remove('selected'));
+      tile.classList.add('selected');
+      showToast(`Abriendo "${m.label.replace('\n',' ')}"...`, true);
+    });
+
+    grid.appendChild(tile);
+  });
+}
+
+renderSeccion(modulesOperativa, 'gridOperativa', 'sec-operativa', true);
+renderSeccion(modulesSeguimiento, 'gridSeguimiento', 'sec-seguimiento', false);
+
+let toastTimer;
+function showToast(msg, isActive){
+  const toast = document.getElementById('toast');
+  const tag = toast.querySelector('.tag');
+  document.getElementById('toastMsg').textContent = msg;
+  tag.textContent = isActive ? '✓' : '⚠️';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> toast.classList.remove('show'), 2600);
+}
+
+// ══════════════════════════════════
+// ESTADO DE SESIÓN
+// ══════════════════════════════════
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){
+    currentUser=null;
+    document.getElementById('authGate').style.display='flex';
+    document.getElementById('hdrUsuario').textContent='';
+    setAuthView('authLoginForm');
+    return;
+  }
+  try{
+    const snap=await getDoc(doc(db,'usuarios',user.uid));
+    if(!snap.exists() || !snap.data().aprobado){
+      currentUser=null;
+      document.getElementById('authGate').style.display='flex';
+      setAuthView('authPending');
+      return;
+    }
+    const datos=snap.data();
+    currentUser={ uid:user.uid, email:datos.email, nombre:datos.nombre, rol:datos.rol };
+    document.getElementById('authGate').style.display='none';
+    document.getElementById('hdrUsuario').textContent = `👤 ${currentUser.nombre}${currentUser.rol==='admin'?' (admin)':''}`;
+  }catch(e){
+    console.error(e);
+  }
+});
+
+Object.assign(window, {
+  hacerLogin, hacerSignup, hacerLogout, mostrarSignup, mostrarLogin, showToast
+});
+
+</script>
+
+</body>
+</html>

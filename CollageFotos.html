@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Compaginador Fotográfico — Vialidad Lanús</title>
+<style>
+  :root{
+    --bg:#0d2040;
+    --bg-card:#132b52;
+    --bg-card2:#0f2544;
+    --teal:#1abc9c;
+    --teal-dark:#149174;
+    --azul-claro:#3498db;
+    --texto:#eaf2f8;
+    --texto-muted:#9fb3c8;
+    --borde:#1f3f6b;
+    --rojo:#e74c3c;
+    --naranja:#e67e22;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,var(--bg) 0%,#081527 100%);
+    color:var(--texto); min-height:100vh; padding-bottom:40px;
+  }
+  header{
+    padding:16px 16px 14px; background:#0a1a33; border-bottom:1px solid var(--borde);
+    position:sticky; top:0; z-index:20;
+  }
+  header h1{margin:0; font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px;}
+  header h1 .ico{font-size:20px;}
+  header p{margin:4px 0 0; font-size:12.5px; color:var(--texto-muted);}
+
+  main{max-width:520px; margin:0 auto; padding:14px;}
+
+  .card{
+    background:var(--bg-card); border:1px solid var(--borde); border-radius:14px;
+    padding:14px; margin-bottom:14px;
+  }
+  .card h2{font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin:0 0 10px;}
+
+  /* Selector de cantidad */
+  .qty-group{display:flex; gap:8px;}
+  .qty-btn{
+    flex:1; padding:12px 0; border-radius:10px; border:1px solid var(--borde);
+    background:var(--bg-card2); color:var(--texto); font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .qty-btn.active{background:var(--teal); border-color:var(--teal); color:#062018;}
+
+  /* Layouts */
+  .layout-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;}
+  .layout-opt{
+    border:2px solid var(--borde); border-radius:10px; background:var(--bg-card2);
+    padding:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .layout-opt.active{border-color:var(--teal); background:#0f3a30;}
+  .layout-opt svg{width:100%; height:44px; display:block;}
+  .layout-opt rect{fill:#2c4a72;}
+  .layout-opt.active rect{fill:var(--teal);}
+
+  /* Slots de fotos */
+  .slots{display:flex; flex-direction:column; gap:10px; margin-top:10px;}
+  .slot{
+    display:flex; align-items:center; gap:10px; background:var(--bg-card2);
+    border:1px dashed var(--borde); border-radius:10px; padding:10px;
+  }
+  .slot-thumb{
+    width:56px; height:56px; border-radius:8px; background:#0a1a33; flex-shrink:0;
+    background-size:cover; background-position:center; display:flex; align-items:center;
+    justify-content:center; color:var(--texto-muted); font-size:11px; text-align:center; overflow:hidden;
+  }
+  .slot-info{flex:1; min-width:0;}
+  .slot-label{font-size:13px; font-weight:600; color:var(--texto);}
+  .slot-sub{font-size:11.5px; color:var(--texto-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .slot-btn{
+    background:var(--teal); color:#062018; border:none; border-radius:8px; padding:9px 12px;
+    font-size:12.5px; font-weight:700; cursor:pointer; flex-shrink:0;
+  }
+  .slot-btn.secondary{background:var(--azul-claro); color:#fff;}
+  input[type=file]{display:none;}
+
+  /* Opciones */
+  .opt-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--borde);}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row label{font-size:13.5px; color:var(--texto);}
+  .opt-row input[type=range]{width:130px; accent-color:var(--teal);}
+  .color-swatches{display:flex; gap:6px;}
+  .sw{width:24px; height:24px; border-radius:6px; border:2px solid transparent; cursor:pointer;}
+  .sw.active{border-color:var(--teal);}
+  select, input[type=text]{
+    background:var(--bg-card2); color:var(--texto); border:1px solid var(--borde);
+    border-radius:8px; padding:8px 10px; font-size:13px;
+  }
+
+  /* Preview */
+  #previewWrap{
+    background:#081527; border:1px solid var(--borde); border-radius:12px; padding:10px;
+    display:flex; align-items:center; justify-content:center; min-height:180px;
+  }
+  #previewCanvas{max-width:100%; border-radius:6px; display:block;}
+  .preview-empty{color:var(--texto-muted); font-size:13px; text-align:center; padding:30px 10px;}
+
+  /* Acciones */
+  .actions{display:flex; gap:10px; margin-top:14px;}
+  .btn-primary{
+    flex:1; background:var(--teal); color:#062018; border:none; border-radius:10px;
+    padding:14px 0; font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .btn-primary:disabled{background:#2c4a5a; color:#6b8194; cursor:not-allowed;}
+  .btn-ghost{
+    background:transparent; border:1px solid var(--borde); color:var(--texto-muted);
+    border-radius:10px; padding:14px 16px; font-size:14px; cursor:pointer;
+  }
+
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--teal); color:#062018; padding:10px 18px; border-radius:20px;
+    font-size:13.5px; font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,.4);
+    opacity:0; pointer-events:none; transition:opacity .25s, bottom .25s; z-index:50;
+  }
+  .toast.show{opacity:1; bottom:34px;}
+
+  .footer-note{text-align:center; font-size:11.5px; color:var(--texto-muted); margin-top:18px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<a href="index.html" title="Volver al inicio" style="position:fixed;top:10px;left:10px;z-index:99999;display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1.5px solid #2c6ea8;background:#0d2040;color:#7eb8f7;font-size:12px;font-weight:700;text-decoration:none;font-family:Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.4);">← Volver al inicio</a>
+
+<header style="padding-top:52px;">
+  <h1><span class="ico">🖼️</span> Compaginador Fotográfico</h1>
+  <p>Dirección de Ejecución en Red Vial — Vialidad Lanús</p>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>1. Cantidad de fotos</h2>
+    <div class="qty-group">
+      <button class="qty-btn active" data-qty="2">2 fotos</button>
+      <button class="qty-btn" data-qty="3">3 fotos</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Diseño</h2>
+    <div class="layout-grid" id="layoutGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Fotos</h2>
+    <button class="slot-btn secondary" id="quickLoadBtn" style="width:100%; padding:12px 0; margin-bottom:12px; font-size:13.5px;">⚡ Carga rápida (elegir todas juntas)</button>
+    <input type="file" accept="image/*" id="quickFileInput" multiple>
+    <div class="slots" id="slots"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Ajustes</h2>
+    <div class="opt-row">
+      <label>Separación</label>
+      <input type="range" id="gapRange" min="0" max="30" value="8">
+    </div>
+    <div class="opt-row">
+      <label>Fondo</label>
+      <div class="color-swatches" id="bgSwatches"></div>
+    </div>
+    <div class="opt-row">
+      <label>Etiqueta (opcional)</label>
+      <input type="text" id="labelInput" placeholder="Ej: Rivadavia 1250" maxlength="60">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>5. Guardar</h2>
+    <div class="opt-row" style="border-bottom:none; flex-direction:column; align-items:stretch; gap:6px;">
+      <label style="margin-bottom:2px;">Nombre del collage</label>
+      <input type="text" id="nameInput" placeholder="Ej: Rivadavia 1250 - Bacheo" maxlength="60" style="width:100%;">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Vista previa</h2>
+    <div id="previewWrap">
+      <div class="preview-empty" id="previewEmpty">Cargá las fotos para ver el collage acá</div>
+      <canvas id="previewCanvas" style="display:none;"></canvas>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="saveBtn" disabled>💾 Guardar</button>
+      <button class="btn-primary" id="downloadBtn" disabled style="background:var(--azul-claro); color:#fff;">⬇ Descargar</button>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost" id="resetBtn" style="flex:1;">Reiniciar</button>
+    </div>
+  </div>
+
+  <div class="card" id="galleryCard" style="display:none;">
+    <h2>Collages guardados</h2>
+    <div class="slots" id="gallery"></div>
+  </div>
+
+  <p class="footer-note">Todo se procesa en el navegador (sin subir fotos a ningún servidor).<br>Funciona sin conexión una vez cargada la página.</p>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const state = {
+    qty: 2,
+    layoutKey: null,
+    images: [null, null, null], // {img, name}
+    gap: 8,
+    bg: '#0d2040',
+    label: '',
+    name: ''
+  };
+
+  const STORAGE_KEY = 'collageFotos_guardados';
+
+  // ---- Definición de layouts (rectángulos normalizados 0..1) ----
+  const LAYOUTS = {
+    2: [
+      { key:'2-horiz', name:'Lado a lado', rects:[[0,0,0.5,1],[0.5,0,0.5,1]] },
+      { key:'2-vert',  name:'Apilado',     rects:[[0,0,1,0.5],[0,0.5,1,0.5]] }
+    ],
+    3: [
+      { key:'3-row',        name:'Fila',            rects:[[0,0,1/3,1],[1/3,0,1/3,1],[2/3,0,1/3,1]] },
+      { key:'3-col',        name:'Columna',          rects:[[0,0,1,1/3],[0,1/3,1,1/3],[0,2/3,1,1/3]] },
+      { key:'3-big-left',   name:'Grande + 2 chicas',rects:[[0,0,0.6,1],[0.6,0,0.4,0.5],[0.6,0.5,0.4,0.5]] },
+      { key:'3-big-top',    name:'Grande arriba',    rects:[[0,0,1,0.55],[0,0.55,0.5,0.45],[0.5,0.55,0.5,0.45]] }
+    ]
+  };
+
+  const OUTPUT_W = 1200; // resolución de salida
+
+  const bgColors = ['#0d2040', '#0a1a33', '#ffffff', '#1abc9c', '#2b2b2b', '#e67e22'];
+
+  const layoutGrid = document.getElementById('layoutGrid');
+  const slotsEl = document.getElementById('slots');
+  const bgSwatchesEl = document.getElementById('bgSwatches');
+  const gapRange = document.getElementById('gapRange');
+  const labelInput = document.getElementById('labelInput');
+  const nameInput = document.getElementById('nameInput');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const previewEmpty = document.getElementById('previewEmpty');
+  const previewWrap = document.getElementById('previewWrap');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const galleryCard = document.getElementById('galleryCard');
+  const galleryEl = document.getElementById('gallery');
+  const toastEl = document.getElementById('toast');
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(()=> toastEl.classList.remove('show'), 1800);
+  }
+
+  function svgForLayout(rects){
+    const w=60,h=44;
+    let s = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+    rects.forEach(r=>{
+      const [x,y,rw,rh] = r;
+      s += `<rect x="${x*w+1.5}" y="${y*h+1.5}" width="${rw*w-3}" height="${rh*h-3}" rx="2"></rect>`;
+    });
+    s += `</svg>`;
+    return s;
+  }
+
+  function renderLayoutOptions(){
+    layoutGrid.innerHTML = '';
+    LAYOUTS[state.qty].forEach((layout, idx)=>{
+      const div = document.createElement('div');
+      div.className = 'layout-opt' + (layout.key === state.layoutKey ? ' active' : '');
+      div.innerHTML = svgForLayout(layout.rects);
+      div.title = layout.name;
+      div.addEventListener('click', ()=>{
+        state.layoutKey = layout.key;
+        renderLayoutOptions();
+        drawPreview();
+      });
+      layoutGrid.appendChild(div);
+    });
+    if(!state.layoutKey || !LAYOUTS[state.qty].find(l=>l.key===state.layoutKey)){
+      state.layoutKey = LAYOUTS[state.qty][0].key;
+      renderLayoutOptions();
+    }
+  }
+
+  function renderSlots(){
+    slotsEl.innerHTML = '';
+    for(let i=0;i<state.qty;i++){
+      const data = state.images[i];
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.innerHTML = `
+        <div class="slot-thumb" id="thumb${i}">${data ? '' : (i+1)}</div>
+        <div class="slot-info">
+          <div class="slot-label">Foto ${i+1}</div>
+          <div class="slot-sub" id="sub${i}">${data ? data.name : 'Sin seleccionar'}</div>
+        </div>
+        <button class="slot-btn" id="pick${i}">${data ? 'Cambiar' : 'Elegir'}</button>
+        <input type="file" accept="image/*" id="file${i}">
+      `;
+      slotsEl.appendChild(slot);
+
+      const fileInput = slot.querySelector(`#file${i}`);
+      slot.querySelector(`#pick${i}`).addEventListener('click', ()=> fileInput.click());
+      fileInput.addEventListener('change', (e)=> handleFile(e, i));
+
+      if(data){
+        const thumb = slot.querySelector(`#thumb${i}`);
+        thumb.style.backgroundImage = `url(${data.img.src})`;
+      }
+    }
+  }
+
+  function handleFile(e, idx){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const img = new Image();
+      img.onload = function(){
+        state.images[idx] = { img, name: file.name };
+        renderSlots();
+        drawPreview();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderBgSwatches(){
+    bgSwatchesEl.innerHTML = '';
+    bgColors.forEach(c=>{
+      const sw = document.createElement('div');
+      sw.className = 'sw' + (c === state.bg ? ' active' : '');
+      sw.style.background = c;
+      sw.style.boxShadow = c === '#ffffff' ? 'inset 0 0 0 1px #444' : 'none';
+      sw.addEventListener('click', ()=>{
+        state.bg = c;
+        renderBgSwatches();
+        drawPreview();
+      });
+      bgSwatchesEl.appendChild(sw);
+    });
+  }
+
+  function currentLayout(){
+    return LAYOUTS[state.qty].find(l=>l.key===state.layoutKey) || LAYOUTS[state.qty][0];
+  }
+
+  function drawImageCover(ctx, img, x, y, w, h){
+    const ir = img.width / img.height;
+    const r = w / h;
+    let sx, sy, sw, sh;
+    if(ir > r){
+      sh = img.height;
+      sw = sh * r;
+      sx = (img.width - sw) / 2;
+      sy = 0;
+    } else {
+      sw = img.width;
+      sh = sw / r;
+      sx = 0;
+      sy = (img.height - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
+  function drawPreview(){
+    const loaded = state.images.slice(0, state.qty).filter(Boolean);
+    if(loaded.length === 0){
+      previewCanvas.style.display = 'none';
+      previewEmpty.style.display = 'block';
+      downloadBtn.disabled = true;
+      saveBtn.disabled = true;
+      return;
+    }
+
+    const layout = currentLayout();
+    const outH = Math.round(OUTPUT_W * 0.66); // relación 3:2 aprox
+    previewCanvas.width = OUTPUT_W;
+    previewCanvas.height = outH;
+    const ctx = previewCanvas.getContext('2d');
+
+    ctx.fillStyle = state.bg;
+    ctx.fillRect(0, 0, OUTPUT_W, outH);
+
+    const gapPx = state.gap;
+
+    layout.rects.forEach((r, i)=>{
+      const data = state.images[i];
+      let [nx, ny, nw, nh] = r;
+      let x = nx * OUTPUT_W + gapPx/2;
+      let y = ny * outH + gapPx/2;
+      let w = nw * OUTPUT_W - gapPx;
+      let h = nh * outH - gapPx;
+      w = Math.max(w, 2); h = Math.max(h, 2);
+
+      if(data){
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        drawImageCover(ctx, data.img, x, y, w, h);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#132b52';
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#4a6a8f';
+        ctx.font = `${Math.round(outH*0.05)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Foto ${i+1}`, x + w/2, y + h/2);
+      }
+    });
+
+    if(state.label && state.label.trim() !== ''){
+      const text = state.label.trim();
+      const fontSize = Math.round(outH * 0.045);
+      ctx.font = `700 ${fontSize}px sans-serif`;
+      const padX = 16, padY = 10;
+      const metrics = ctx.measureText(text);
+      const boxW = metrics.width + padX*2;
+      const boxH = fontSize + padY*2;
+      const bx = 14, by = outH - boxH - 14;
+      ctx.fillStyle = 'rgba(8,21,39,0.72)';
+      ctx.fillRect(bx, by, boxW, boxH);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + padX, by + boxH/2);
+    }
+
+    previewCanvas.style.display = 'block';
+    previewEmpty.style.display = 'none';
+    downloadBtn.disabled = loaded.length === 0;
+    saveBtn.disabled = loaded.length === 0;
+  }
+
+  // ---- Carga rápida (multi-selección) ----
+  const quickLoadBtn = document.getElementById('quickLoadBtn');
+  const quickFileInput = document.getElementById('quickFileInput');
+
+  quickLoadBtn.addEventListener('click', ()=> quickFileInput.click());
+
+  quickFileInput.addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files || []).slice(0, state.qty);
+    if(files.length === 0) return;
+
+    let loadedCount = 0;
+    files.forEach((file, idx)=>{
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        const img = new Image();
+        img.onload = function(){
+          state.images[idx] = { img, name: file.name };
+          loadedCount++;
+          renderSlots();
+          drawPreview();
+          if(loadedCount === files.length){
+            showToast(files.length === state.qty ? 'Fotos cargadas ✓' : `${files.length} de ${state.qty} cargadas — completá el resto`);
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    quickFileInput.value = '';
+  });
+
+  // ---- Eventos globales ----
+  document.querySelectorAll('.qty-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.qty-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.qty = parseInt(btn.dataset.qty, 10);
+      state.layoutKey = null;
+      renderLayoutOptions();
+      renderSlots();
+      drawPreview();
+    });
+  });
+
+  gapRange.addEventListener('input', ()=>{
+    state.gap = parseInt(gapRange.value, 10);
+    drawPreview();
+  });
+
+  labelInput.addEventListener('input', ()=>{
+    state.label = labelInput.value;
+    drawPreview();
+  });
+
+  nameInput.addEventListener('input', ()=>{
+    state.name = nameInput.value;
+  });
+
+  function slugName(){
+    const base = state.name && state.name.trim() !== '' ? state.name.trim() : 'collage';
+    return base.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ \-_]/g,'').replace(/\s+/g,'_').slice(0,50);
+  }
+
+  function buildFileName(){
+    const ts = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${slugName()}_${pad(ts.getDate())}-${pad(ts.getMonth()+1)}-${ts.getFullYear()}_${pad(ts.getHours())}${pad(ts.getMinutes())}.jpg`;
+  }
+
+  downloadBtn.addEventListener('click', ()=>{
+    if(downloadBtn.disabled) return;
+    const link = document.createElement('a');
+    link.download = buildFileName();
+    link.href = previewCanvas.toDataURL('image/jpeg', 0.92);
+    link.click();
+    showToast('Collage descargado ✓');
+  });
+
+  // ---- Guardado en localStorage ----
+  function getSaved(){
+    try{
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    }catch(e){
+      return [];
+    }
+  }
+
+  function setSaved(list){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function renderGallery(){
+    const saved = getSaved();
+    if(saved.length === 0){
+      galleryCard.style.display = 'none';
+      galleryEl.innerHTML = '';
+      return;
+    }
+    galleryCard.style.display = 'block';
+    galleryEl.innerHTML = '';
+    saved.slice().reverse().forEach(item=>{
+      const row = document.createElement('div');
+      row.className = 'slot';
+      row.innerHTML = `
+        <div class="slot-thumb" style="background-image:url(${item.dataUrl});"></div>
+        <div class="slot-info">
+          <div class="slot-label">${item.name}</div>
+          <div class="slot-sub">${item.date}</div>
+        </div>
+        <button class="slot-btn secondary" data-action="dl" data-id="${item.id}" style="margin-right:6px;">⬇</button>
+        <button class="slot-btn" data-action="del" data-id="${item.id}" style="background:var(--rojo); color:#fff;">✕</button>
+      `;
+      galleryEl.appendChild(row);
+    });
+
+    galleryEl.querySelectorAll('[data-action="dl"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const item = getSaved().find(x=>x.id === btn.dataset.id);
+        if(!item) return;
+        const link = document.createElement('a');
+        const safe = item.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ \-_]/g,'').replace(/\s+/g,'_');
+        link.download = `${safe}.jpg`;
+        link.href = item.dataUrl;
+        link.click();
+      });
+    });
+
+    galleryEl.querySelectorAll('[data-action="del"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(!confirm('¿Eliminar este collage guardado?')) return;
+        const remaining = getSaved().filter(x=>x.id !== btn.dataset.id);
+        setSaved(remaining);
+        renderGallery();
+        showToast('Collage eliminado');
+      });
+    });
+  }
+
+  saveBtn.addEventListener('click', ()=>{
+    if(saveBtn.disabled) return;
+    const saved = getSaved();
+    const ts = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const item = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      name: state.name && state.name.trim() !== '' ? state.name.trim() : `Collage ${saved.length + 1}`,
+      date: `${pad(ts.getDate())}/${pad(ts.getMonth()+1)}/${ts.getFullYear()} ${pad(ts.getHours())}:${pad(ts.getMinutes())}`,
+      dataUrl: previewCanvas.toDataURL('image/jpeg', 0.85)
+    };
+    saved.push(item);
+    const ok = setSaved(saved);
+    if(ok){
+      renderGallery();
+      showToast('Collage guardado ✓');
+    } else {
+      showToast('No se pudo guardar (memoria llena)');
+    }
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    if(!confirm('¿Reiniciar y borrar las fotos cargadas?')) return;
+    state.images = [null, null, null];
+    state.gap = 8;
+    state.bg = '#0d2040';
+    state.label = '';
+    state.name = '';
+    gapRange.value = 8;
+    labelInput.value = '';
+    nameInput.value = '';
+    renderBgSwatches();
+    renderSlots();
+    drawPreview();
+  });
+
+  // ---- Init ----
+  renderLayoutOptions();
+  renderSlots();
+  renderBgSwatches();
+  renderGallery();
+  drawPreview();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador OT → OC · Vía Pública</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bg:#0f1720; --bg2:#17222e; --card:#1b2733; --borde:#2a3a48;
+    --teal:#1fb8a3; --teal-d:#0f8f7d; --texto:#e8eef2; --texto2:#8fa3b0;
+    --rojo:#e0524a; --naranja:#e07b2a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Segoe UI',Arial,sans-serif;
+    background:var(--bg); color:var(--texto);
+    font-size:14px; min-height:100vh; padding-bottom:50px;
+  }
+  .hdr{
+    background:var(--bg2); padding:16px 18px 14px;
+    position:sticky; top:0; z-index:100;
+    border-bottom:3px solid var(--teal);
+    box-shadow:0 2px 10px rgba(0,0,0,.3);
+  }
+  .hdr h1{font-size:16px; font-weight:700; color:#fff; display:flex; align-items:center; gap:8px;}
+  .hdr p{font-size:11.5px; color:var(--texto2); margin-top:3px;}
+  .hdr-estado{font-size:11px; margin-top:6px; display:flex; align-items:center; gap:6px;}
+  .dot{width:7px; height:7px; border-radius:50%; background:#666;}
+  .dot.ok{background:#2d9d6f;}
+  .dot.err{background:var(--rojo);}
+  .dot.cargando{background:var(--naranja); animation:pulso 1s infinite;}
+  @keyframes pulso{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .content{padding:16px; max-width:900px; margin:0 auto;}
+
+  .login-box{
+    background:var(--card); border:1px solid var(--borde); border-radius:10px;
+    padding:24px 16px; margin-bottom:16px; text-align:center;
+  }
+  .login-box p{font-size:12.5px; color:var(--texto2); margin-bottom:14px;}
+  #btnLogin{
+    background:var(--teal); color:#06251f; border:none; border-radius:8px;
+    padding:12px 20px; font-weight:700; font-size:14px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .user-chip{
+    display:none; background:var(--card); border:1px solid var(--borde); border-radius:10px;
+    padding:10px 14px; margin-bottom:14px; font-size:12px; color:var(--texto2);
+    justify-content:space-between; align-items:center;
+  }
+  .user-chip b{color:var(--teal);}
+  .user-chip button{
+    background:none; border:1px solid var(--borde); color:var(--texto2);
+    padding:5px 10px; border-radius:6px; font-size:11px; cursor:pointer;
+  }
+
+  .config-box{
+    background:var(--card); border:1px solid var(--borde); border-radius:10px;
+    padding:14px; margin-bottom:14px; font-size:12px; color:var(--texto2); display:none;
+  }
+  .config-box button{
+    background:var(--teal); color:#06251f; border:none; border-radius:6px;
+    padding:8px 14px; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
+  .config-box select{
+    width:100%; background:var(--bg); border:1px solid var(--borde); color:var(--texto);
+    padding:9px 10px; border-radius:6px; font-size:13px; margin-top:6px;
+  }
+
+  .buscar-box{
+    background:var(--card); border:1px solid var(--borde); border-radius:10px;
+    padding:16px; margin-bottom:16px;
+  }
+  .buscar-label{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--texto2); margin-bottom:8px; font-weight:700;}
+  .buscar-row{display:flex; gap:8px;}
+  input#otInput{
+    flex:1; background:var(--bg); border:1px solid var(--borde); color:var(--texto);
+    padding:12px 14px; border-radius:8px; font-size:16px; outline:none;
+  }
+  input#otInput:focus{border-color:var(--teal); box-shadow:0 0 0 3px rgba(31,184,163,.15);}
+  button#btnBuscar{
+    background:var(--teal); color:#06251f; border:none; border-radius:8px;
+    padding:0 18px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  button#btnBuscar:disabled{opacity:.4;}
+  button#btnDescargarTodo{
+    display:none; width:100%; margin-top:10px; background:var(--bg); color:var(--teal);
+    border:1px solid var(--teal); border-radius:8px; padding:10px; font-weight:700;
+    font-size:12.5px; cursor:pointer;
+  }
+
+  .resumen{font-size:12.5px; color:var(--texto2); margin-bottom:14px; padding:0 2px; display:none;}
+  .resumen b{color:var(--teal);}
+
+  .grid-oc{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px;}
+  .oc-card{background:var(--card); border:1px solid var(--borde); border-radius:10px; overflow:hidden;}
+  .oc-foto{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; cursor:pointer; background:var(--bg2);}
+  .oc-foto-vacia{aspect-ratio:4/3; background:var(--bg2); display:flex; align-items:center; justify-content:center; color:var(--texto2); font-size:11px;}
+  .oc-info{padding:9px 10px;}
+  .oc-num{font-size:13px; font-weight:700; color:#fff;}
+  .oc-num span{color:var(--teal);}
+  .oc-calle{font-size:11.5px; color:var(--texto2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .oc-meta{display:flex; justify-content:space-between; align-items:center; margin-top:6px;}
+  .tag{background:rgba(31,184,163,.15); color:var(--teal); padding:2px 7px; border-radius:5px; font-size:10px; font-weight:700;}
+  .oc-fecha{font-size:10.5px; color:var(--texto2);}
+  .btn-desc{
+    display:block; text-align:center; margin-top:8px; padding:7px;
+    background:var(--bg); border:1px solid var(--borde); border-radius:6px;
+    color:var(--teal); font-size:11.5px; font-weight:600; text-decoration:none;
+  }
+  .btn-desc:active{background:var(--teal); color:#06251f;}
+
+  .sin-resultados{text-align:center; padding:60px 20px; color:var(--texto2);}
+  .sin-resultados .icono{font-size:40px; margin-bottom:12px; opacity:.5;}
+
+  .modal{display:none; position:fixed; inset:0; background:rgba(0,0,0,.9); z-index:1000; align-items:center; justify-content:center; padding:16px;}
+  .modal.open{display:flex;}
+  .modal img{max-width:100%; max-height:85vh; border-radius:8px;}
+  .modal-cerrar{position:absolute; top:16px; right:16px; background:var(--card); color:#fff; border:none; width:36px; height:36px; border-radius:50%; font-size:18px; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>🔍 Buscador OT → OC</h1>
+  <p>Lee el documento directo desde Google Drive</p>
+  <div class="hdr-estado"><span class="dot" id="dotEstado"></span><span id="txtEstado">Sin iniciar sesión</span></div>
+</div>
+
+<div class="content">
+
+  <div class="login-box" id="loginBox">
+    <p>Iniciá sesión con tu cuenta de Google para leer los documentos de la carpeta SAT</p>
+    <button id="btnLogin" onclick="iniciarSesion()">🔑 Iniciar sesión con Google</button>
+  </div>
+
+  <div class="user-chip" id="userChip">
+    <span>Conectado como <b id="userEmail"></b></span>
+    <button onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+
+  <div class="config-box" id="configBox">
+    <button onclick="listarCarpeta()">📂 Ver documentos de la carpeta</button>
+    <div id="selectorDocs" style="display:none; margin-top:12px;">
+      <div><b>Elegí el documento:</b></div>
+      <select id="docSelect"></select>
+      <button style="margin-top:8px;" onclick="cargarDocumentoSeleccionado()">📥 Cargar documento</button>
+    </div>
+  </div>
+
+  <div class="buscar-box">
+    <div class="buscar-label">Número de OT</div>
+    <div class="buscar-row">
+      <input type="text" id="otInput" placeholder="Ej: 1564" inputmode="numeric" disabled>
+      <button id="btnBuscar" onclick="buscarOT()" disabled>Buscar</button>
+    </div>
+    <button id="btnDescargarTodo" onclick="descargarTodo()">⬇ Descargar todas las fotos de esta OT</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="resultados"></div>
+</div>
+
+<div class="modal" id="modal" onclick="cerrarModal()">
+  <button class="modal-cerrar" onclick="cerrarModal()">✕</button>
+  <img id="modalImg" src="" onclick="event.stopPropagation()">
+</div>
+
+<script>
+const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+const RELS_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
+const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const SHORTCUT_MIME = 'application/vnd.google-apps.shortcut';
+
+// ═══════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ═══════════════════════════════════════════════
+const CLIENT_ID = "204408939127-c82fskp7haajf524qgq2i6sa1kumirn7.apps.googleusercontent.com";
+const FOLDER_ID = "1y8Ags6AxzrL66zFjspniIoFu68fRj-0Z";
+const SCOPES = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly";
+
+let accessToken = null;
+let tokenClient = null;
+let DATA = [];
+let ultimoResultado = [];
+
+function setEstado(txt, tipo){
+  document.getElementById('txtEstado').textContent = txt;
+  document.getElementById('dotEstado').className = 'dot ' + (tipo||'');
+}
+
+window.addEventListener('load', () => {
+  const esperarGIS = setInterval(() => {
+    if(window.google && google.accounts){
+      clearInterval(esperarGIS);
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (resp) => {
+          if(resp.error){ setEstado('Error de login: ' + resp.error, 'err'); return; }
+          accessToken = resp.access_token;
+          onLoginOk();
+        }
+      });
+    }
+  }, 200);
+});
+
+function iniciarSesion(){
+  if(!tokenClient){ alert('Todavía está cargando el login de Google, esperá un segundo y probá de nuevo'); return; }
+  tokenClient.requestAccessToken();
+}
+
+async function onLoginOk(){
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('userChip').style.display = 'flex';
+  document.getElementById('configBox').style.display = 'block';
+  setEstado('Sesión iniciada', 'ok');
+  try{
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const info = await res.json();
+    document.getElementById('userEmail').textContent = info.email || '';
+  } catch(e){ /* no es crítico */ }
+  listarCarpeta();
+}
+
+function cerrarSesion(){
+  if(accessToken){
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  document.getElementById('loginBox').style.display = 'block';
+  document.getElementById('userChip').style.display = 'none';
+  document.getElementById('configBox').style.display = 'none';
+  document.getElementById('otInput').disabled = true;
+  document.getElementById('btnBuscar').disabled = true;
+  document.getElementById('resultados').innerHTML = '';
+  document.getElementById('resumen').style.display = 'none';
+  setEstado('Sesión cerrada', '');
+}
+
+async function listarCarpeta(){
+  if(!accessToken) return;
+  setEstado('Buscando documentos en la carpeta...', 'cargando');
+  try{
+    const q = encodeURIComponent(`'${FOLDER_ID}' in parents and trashed=false and (mimeType='${GOOGLE_DOC_MIME}' or mimeType='${DOCX_MIME}' or mimeType='${SHORTCUT_MIME}')`);
+    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=name&fields=files(id,name,mimeType,modifiedTime)&pageSize=200`;
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if(!res.ok) throw new Error('No se pudo leer la carpeta (código ' + res.status + ')');
+    const data = await res.json();
+    const archivos = data.files || [];
+
+    if(!archivos.length){
+      setEstado('La carpeta no tiene documentos visibles', 'err');
+      return;
+    }
+
+    const select = document.getElementById('docSelect');
+    select.innerHTML = archivos.map(f => `<option value="${f.id}" data-mime="${f.mimeType}">${f.name}</option>`).join('');
+    document.getElementById('selectorDocs').style.display = 'block';
+    setEstado(`${archivos.length} documentos encontrados`, 'ok');
+  } catch(err){
+    console.error(err);
+    setEstado('Error: ' + err.message, 'err');
+  }
+}
+
+async function cargarDocumentoSeleccionado(){
+  const select = document.getElementById('docSelect');
+  await cargarDocumento(select.value);
+}
+
+async function cargarDocumento(fileId){
+  if(!accessToken || !fileId) return;
+  const auth = { Authorization: 'Bearer ' + accessToken };
+
+  setEstado('Consultando Drive...', 'cargando');
+  document.getElementById('otInput').disabled = true;
+  document.getElementById('btnBuscar').disabled = true;
+
+  try{
+    let metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,name,shortcutDetails`, { headers: auth });
+    if(!metaRes.ok) throw new Error('No se pudo leer el archivo (código ' + metaRes.status + ')');
+    let meta = await metaRes.json();
+    let realFileId = fileId;
+
+    if(meta.mimeType === SHORTCUT_MIME){
+      if(!meta.shortcutDetails || !meta.shortcutDetails.targetId) throw new Error('El acceso directo no tiene destino válido');
+      realFileId = meta.shortcutDetails.targetId;
+      setEstado('Siguiendo acceso directo...', 'cargando');
+      const targetRes = await fetch(`https://www.googleapis.com/drive/v3/files/${realFileId}?fields=mimeType,name`, { headers: auth });
+      if(!targetRes.ok) throw new Error('No se pudo leer el archivo original del acceso directo');
+      const targetMeta = await targetRes.json();
+      meta = { mimeType: targetMeta.mimeType, name: targetMeta.name || meta.name };
+    }
+
+    if(meta.mimeType === GOOGLE_DOC_MIME){
+      setEstado('Leyendo documento (Docs API)...', 'cargando');
+      const docRes = await fetch(`https://docs.googleapis.com/v1/documents/${realFileId}`, { headers: auth });
+      if(!docRes.ok) throw new Error('Error leyendo el documento con la API de Docs (código ' + docRes.status + ')');
+      const docJson = await docRes.json();
+      setEstado('Procesando documento...', 'cargando');
+      DATA = await procesarGoogleDoc(docJson);
+    } else {
+      setEstado('Descargando archivo...', 'cargando');
+      const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media`, { headers: auth });
+      if(!dlRes.ok) throw new Error('Error descargando el archivo');
+      const bytes = await dlRes.arrayBuffer();
+      setEstado('Procesando documento...', 'cargando');
+      DATA = await procesarDocx(bytes);
+    }
+
+    setEstado(`${DATA.length} OC cargadas · ${meta.name || ''}`, 'ok');
+    document.getElementById('otInput').disabled = false;
+    document.getElementById('btnBuscar').disabled = false;
+  } catch(err){
+    console.error(err);
+    setEstado('Error: ' + err.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  Procesar Google Doc nativo vía Docs API (sin límite de tamaño)
+// ═══════════════════════════════════════════════
+async function procesarGoogleDoc(doc){
+  const inlineObjects = doc.inlineObjects || {};
+
+  function textoDeCelda(cell){
+    let out = '';
+    for(const el of (cell.content || [])){
+      const parr = el.paragraph;
+      if(!parr) continue;
+      for(const pe of (parr.elements || [])){
+        if(pe.textRun) out += pe.textRun.content;
+      }
+    }
+    return out.trim();
+  }
+
+  function imagenIdsDeCelda(cell){
+    const ids = [];
+    for(const el of (cell.content || [])){
+      const parr = el.paragraph;
+      if(!parr) continue;
+      for(const pe of (parr.elements || [])){
+        if(pe.inlineObjectElement && pe.inlineObjectElement.inlineObjectId){
+          ids.push(pe.inlineObjectElement.inlineObjectId);
+        }
+      }
+    }
+    return ids;
+  }
+
+  async function contentUriToBase64(uri){
+    const res = await fetch(uri);
+    if(!res.ok) throw new Error('No se pudo descargar una imagen del documento');
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const tablas = [];
+  function buscarTablas(contentArr){
+    for(const el of (contentArr || [])){
+      if(el.table) tablas.push(el.table);
+      if(el.tableOfContents) buscarTablas(el.tableOfContents.content);
+    }
+  }
+  buscarTablas(doc.body.content);
+
+  // Pre-contar cuántas tablas tienen una OC válida, para poder mostrar progreso real
+  const tablasConOC = tablas.filter(tabla => {
+    const filas = tabla.tableRows || [];
+    if(!filas.length) return false;
+    const flat = filas.map(f => (f.tableCells||[]).map(textoDeCelda).join(' | ')).join('\n');
+    return /OC\s*#?\s*\d+/i.test(flat);
+  });
+  const totalOC = tablasConOC.length;
+  let procesadas = 0;
+
+  const registros = [];
+
+  for(const tabla of tablas){
+    const filas = tabla.tableRows || [];
+    if(!filas.length) continue;
+
+    const filasCeldas = filas.map(f => f.tableCells || []);
+    const flat = filasCeldas.map(cs => cs.map(textoDeCelda).join(' | ')).join('\n');
+
+    const fechaM = flat.match(/FECHA:\s*([\d/]+)/i);
+    const ocM = flat.match(/OC\s*#?\s*(\d+)/i);
+    const otM = flat.match(/OT\s*#?\s*(\d+)/i);
+    const calleM = flat.match(/CALLE\/ALTURA:\s*([^|\n]+)/i);
+    const tipoM = flat.match(/TIPO:\s*(\w+)/i);
+
+    if(!ocM) continue;
+
+    procesadas++;
+    setEstado(`Procesando fotos... ${procesadas}/${totalOC}`, 'cargando');
+
+    let antesCol=null, despuesCol=null, labelRowIdx=null;
+    filasCeldas.forEach((celdas, ridx) => {
+      celdas.forEach((c, cidx) => {
+        const t = textoDeCelda(c).toUpperCase();
+        if(t.includes('ANTES') && antesCol===null){ antesCol = cidx; labelRowIdx = ridx; }
+        if(t.includes('DESPU') && despuesCol===null){ despuesCol = cidx; }
+      });
+    });
+
+    let despuesObjId = null;
+    if(labelRowIdx !== null){
+      for(let i = labelRowIdx+1; i < filasCeldas.length; i++){
+        const celdas = filasCeldas[i];
+        if(despuesCol !== null && despuesCol < celdas.length && !despuesObjId){
+          const ids = imagenIdsDeCelda(celdas[despuesCol]);
+          if(ids.length) despuesObjId = ids[0];
+        }
+        if(despuesObjId) break;
+      }
+    }
+
+    let fotoB64 = null, fotoName = null;
+    if(despuesObjId && inlineObjects[despuesObjId]){
+      const props = inlineObjects[despuesObjId].inlineObjectProperties?.embeddedObject?.imageProperties;
+      const uri = props?.contentUri;
+      if(uri){
+        try{
+          fotoB64 = await contentUriToBase64(uri);
+          fotoName = `OC${ocM[1]}_DESPUES.jpg`;
+        } catch(e){ console.warn('No se pudo bajar foto de OC', ocM[1], e); }
+      }
+    }
+
+    registros.push({
+      oc: ocM[1],
+      ot: otM ? otM[1] : '',
+      fecha: fechaM ? fechaM[1] : '',
+      calle: calleM ? calleM[1].trim() : '',
+      tipo: tipoM ? tipoM[1].trim() : '',
+      foto_b64: fotoB64,
+      foto_name: fotoName
+    });
+  }
+
+  return registros;
+}
+
+// ═══════════════════════════════════════════════
+//  Procesar .docx real (subido tal cual, no Google Doc)
+// ═══════════════════════════════════════════════
+async function procesarDocx(arrayBuffer){
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const docXmlStr = await zip.file('word/document.xml').async('string');
+  const relsXmlStr = await zip.file('word/_rels/document.xml.rels').async('string');
+
+  const parser = new DOMParser();
+  const docXml = parser.parseFromString(docXmlStr, 'application/xml');
+  const relsXml = parser.parseFromString(relsXmlStr, 'application/xml');
+
+  const ridToPath = {};
+  const relEls = relsXml.getElementsByTagNameNS(RELS_NS, 'Relationship');
+  for(const rel of relEls){
+    const type = rel.getAttribute('Type') || '';
+    if(type.includes('image')){
+      let target = rel.getAttribute('Target');
+      if(target.startsWith('media/')) target = 'word/' + target;
+      ridToPath[rel.getAttribute('Id')] = target;
+    }
+  }
+
+  function textoDeCelda(tc){
+    const ps = tc.getElementsByTagNameNS(W_NS, 't');
+    let out = '';
+    for(const t of ps) out += t.textContent;
+    return out.trim();
+  }
+
+  function imagenesDeCelda(tc){
+    const blips = tc.getElementsByTagNameNS(A_NS, 'blip');
+    const rids = [];
+    for(const b of blips){
+      const rid = b.getAttributeNS(R_NS, 'embed');
+      if(rid) rids.push(rid);
+    }
+    return rids;
+  }
+
+  const tablas = docXml.getElementsByTagNameNS(W_NS, 'tbl');
+  const totalTablas = tablas.length;
+  let procesadas = 0;
+  const registros = [];
+
+  for(const tabla of tablas){
+    const filas = Array.from(tabla.childNodes).filter(n => n.localName === 'tr');
+    if(!filas.length) continue;
+
+    const filasCeldas = filas.map(f => Array.from(f.childNodes).filter(n => n.localName === 'tc'));
+    const flat = filasCeldas.map(cs => cs.map(textoDeCelda).join(' | ')).join('\n');
+
+    const fechaM = flat.match(/FECHA:\s*([\d/]+)/i);
+    const ocM = flat.match(/OC\s*#?\s*(\d+)/i);
+    const otM = flat.match(/OT\s*#?\s*(\d+)/i);
+    const calleM = flat.match(/CALLE\/ALTURA:\s*([^|\n]+)/i);
+    const tipoM = flat.match(/TIPO:\s*(\w+)/i);
+
+    if(!ocM) continue;
+    procesadas++;
+    setEstado(`Procesando fotos... ${procesadas}/${totalTablas}`, 'cargando');
+
+    let antesCol=null, despuesCol=null, labelRowIdx=null;
+    filasCeldas.forEach((celdas, ridx) => {
+      celdas.forEach((tc, cidx) => {
+        const t = textoDeCelda(tc).toUpperCase();
+        if(t.includes('ANTES') && antesCol===null){ antesCol = cidx; labelRowIdx = ridx; }
+        if(t.includes('DESPU') && despuesCol===null){ despuesCol = cidx; }
+      });
+    });
+
+    let despuesRid = null;
+    if(labelRowIdx !== null){
+      for(let i = labelRowIdx+1; i < filasCeldas.length; i++){
+        const celdas = filasCeldas[i];
+        if(despuesCol !== null && despuesCol < celdas.length && !despuesRid){
+          const rids = imagenesDeCelda(celdas[despuesCol]);
+          if(rids.length) despuesRid = rids[0];
+        }
+        if(despuesRid) break;
+      }
+    }
+
+    let fotoB64 = null, fotoName = null;
+    if(despuesRid && ridToPath[despuesRid]){
+      const path = ridToPath[despuesRid];
+      const file = zip.file(path);
+      if(file){
+        const blob = await file.async('base64');
+        const ext = path.split('.').pop();
+        fotoB64 = blob;
+        fotoName = `OC${ocM[1]}_DESPUES.${ext}`;
+      }
+    }
+
+    registros.push({
+      oc: ocM[1],
+      ot: otM ? otM[1] : '',
+      fecha: fechaM ? fechaM[1] : '',
+      calle: calleM ? calleM[1].trim() : '',
+      tipo: tipoM ? tipoM[1].trim() : '',
+      foto_b64: fotoB64,
+      foto_name: fotoName
+    });
+  }
+
+  return registros;
+}
+
+function normOT(s){ return (s||'').toString().replace(/\D/g,''); }
+
+function buscarOT(){
+  const val = normOT(document.getElementById('otInput').value);
+  const resultadosDiv = document.getElementById('resultados');
+  const resumenDiv = document.getElementById('resumen');
+  const btnTodo = document.getElementById('btnDescargarTodo');
+  resultadosDiv.innerHTML = '';
+  btnTodo.style.display = 'none';
+
+  if(!val){ resumenDiv.style.display = 'none'; return; }
+
+  const encontrados = DATA.filter(r => normOT(r.ot) === val);
+  ultimoResultado = encontrados;
+  resumenDiv.style.display = 'block';
+
+  if(encontrados.length === 0){
+    resumenDiv.innerHTML = '';
+    resultadosDiv.innerHTML = `
+      <div class="sin-resultados">
+        <div class="icono">🔎</div>
+        <p>No se encontraron OC para la OT <b>${val}</b></p>
+      </div>`;
+    return;
+  }
+
+  resumenDiv.innerHTML = `OT <b>${val}</b> · <b>${encontrados.length}</b> OC encontrada${encontrados.length!==1?'s':''}`;
+  if(encontrados.some(r=>r.foto_b64)) btnTodo.style.display = 'block';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid-oc';
+
+  encontrados.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'oc-card';
+    card.innerHTML = `
+      ${r.foto_b64
+        ? `<img class="oc-foto" src="data:image/jpeg;base64,${r.foto_b64}" onclick="verGrande('${r.foto_b64}')">`
+        : `<div class="oc-foto-vacia">Sin foto</div>`}
+      <div class="oc-info">
+        <div class="oc-num">OC <span>#${r.oc}</span></div>
+        <div class="oc-calle">${r.calle || '-'}</div>
+        <div class="oc-meta">
+          <span class="tag">${r.tipo || 'BACHEO'}</span>
+          <span class="oc-fecha">${r.fecha || ''}</span>
+        </div>
+        ${r.foto_b64 ? `<a class="btn-desc" download="${r.foto_name}" href="data:image/jpeg;base64,${r.foto_b64}">⬇ Descargar</a>` : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  resultadosDiv.appendChild(grid);
+}
+
+function descargarTodo(){
+  ultimoResultado.forEach((r, i) => {
+    if(!r.foto_b64) return;
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = 'data:image/jpeg;base64,' + r.foto_b64;
+      a.download = r.foto_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }, i * 300);
+  });
+}
+
+function verGrande(b64){
+  document.getElementById('modalImg').src = 'data:image/jpeg;base64,' + b64;
+  document.getElementById('modal').classList.add('open');
+}
+function cerrarModal(){ document.getElementById('modal').classList.remove('open'); }
+
+document.getElementById('otInput').addEventListener('keydown', e=>{ if(e.key==='Enter') buscarOT(); });
+</script>
+
+</body>
+</html>

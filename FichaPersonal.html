@@ -62,6 +62,36 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text)
 .chip-grey{background:#eef0f4;color:var(--text2)}
 .empty-state{text-align:center;color:var(--text3);padding:40px 16px;font-size:13px}
 
+/* ===== ALERTAS ===== */
+.alerta-grupo{margin-bottom:18px}
+.alerta-grupo h3{font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.alerta-grupo h3 .cnt{background:var(--border);color:var(--text2);border-radius:12px;padding:1px 8px;font-size:11px}
+.alerta-item{background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 13px;margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;box-shadow:var(--shadow);transition:box-shadow .2s}
+.alerta-item:hover{box-shadow:var(--shadow-md)}
+.alerta-item .ai-nom{font-weight:700;font-size:13px}
+.alerta-item .ai-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.alerta-item .ai-detail{font-size:11.5px;font-weight:700;text-align:right;white-space:nowrap}
+.alerta-grupo.venc h3{color:var(--red-foto)}
+.alerta-grupo.prox h3{color:var(--amber)}
+.alerta-grupo.info h3{color:var(--blue2)}
+
+/* ===== LICENCIA — fotos desde Drive (mismo estilo que DocumentacionPersonal.html) ===== */
+.doc-strip{height:5px;border-radius:4px;margin-bottom:10px}
+.doc-strip.vigente{background:var(--green)}
+.doc-strip.proximo{background:var(--amber)}
+.doc-strip.vencido{background:var(--red-foto)}
+.doc-strip.sindato{background:var(--text3)}
+.doc-photos{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#cbd5e1;border-radius:8px;overflow:hidden;max-width:280px;margin-top:10px}
+.doc-photo-slot{position:relative;overflow:hidden;aspect-ratio:4/3;background:#e8ecf2;cursor:pointer}
+.doc-photo-slot img{width:100%;height:100%;object-fit:cover;display:block}
+.doc-photo-slot .lbl{position:absolute;bottom:0;left:0;right:0;background:rgba(15,25,45,.6);color:#fff;font-size:9.5px;font-weight:700;padding:4px 0;text-align:center}
+.doc-photo-slot.missing{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:20px;cursor:default}
+.drive-status{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:14px;display:inline-flex;align-items:center;gap:5px}
+.drive-status.connected{background:#e5f7ee;color:var(--green)}
+.drive-status.disconnected{background:var(--border);color:var(--text3)}
+.preview-overlay{position:fixed;inset:0;background:rgba(15,25,45,.6);display:none;align-items:center;justify-content:center;z-index:700;padding:16px}
+.preview-overlay.show{display:flex}
+
 /* ===== FICHA / MODAL ===== */
 .overlay{position:fixed;inset:0;background:rgba(13,32,64,.55);display:none;align-items:flex-start;justify-content:center;z-index:500;padding:24px 16px;overflow-y:auto}
 .overlay.open{display:flex}
@@ -157,12 +187,21 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text)
 
 <div class="tabs">
   <div class="tab active" onclick="showPanel('fichas')">📇 Fichas</div>
+  <div class="tab" onclick="showPanel('alertas')">🔔 Alertas <span id="alertasBadge" style="display:none;background:var(--red-foto);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:2px;"></span></div>
   <div class="tab" id="tabImportar" onclick="showPanel('importar')" style="display:none;">📥 Importar Excel</div>
 </div>
 
 <div id="panel-fichas" class="panel active">
   <div class="toolbar"><input type="text" id="buscador" placeholder="Buscar por nombre o legajo..." oninput="renderGrid()"></div>
+  <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+    <span class="drive-status disconnected" id="driveStatus">☁️ Drive no conectado</span>
+    <button class="tab" style="padding:5px 12px;font-size:11px;" onclick="actualizarDesdeDrive()">🔄 Actualizar Drive</button>
+  </div>
   <div class="grid" id="grid"></div>
+</div>
+
+<div id="panel-alertas" class="panel">
+  <div id="alertasList"></div>
 </div>
 
 <div id="panel-importar" class="panel">
@@ -184,6 +223,16 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text)
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div id="modalContent"></div>
+  </div>
+</div>
+
+<div class="preview-overlay" id="previewOverlay" onclick="if(event.target===this) cerrarPreview()">
+  <div style="max-width:94vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <span id="previewTitulo" style="color:#fff;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px"></span>
+      <button onclick="cerrarPreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">✕ Cerrar</button>
+    </div>
+    <img id="previewImg" src="" style="max-width:100%;max-height:76vh;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);background:#fff" onerror="this.style.display='none'">
   </div>
 </div>
 <script type="module">
@@ -221,6 +270,58 @@ let LEGAJOS = {};   // legajo (solo dígitos) -> {vencimiento:'YYYY-MM-DD', pref
 let unsubAgentes = null;
 let unsubLegajos = null;
 const MODULO_ARCHIVO = 'FichaPersonal.html';
+
+// ══════════════════════════════════
+// DRIVE — fotos de licencia (mismo mecanismo que DocumentacionPersonal.html:
+// no sube nada, solo lista archivos ya subidos a mano a esta carpeta y los
+// engancha por el prefijo del nombre de archivo de cada agente)
+// ══════════════════════════════════
+const DRIVE_API_KEY   = "AIzaSyCTmsIBAwOlwndN2wddCTXi1wOXmQN3AkA";
+const DRIVE_FOLDER_ID = "1gYsHineSIE7tWO9KS74tMrxnyf2X2X8l";
+let driveFiles = [];
+let driveConectado = false;
+
+window.actualizarDesdeDrive = async ()=>{
+  const statusEl = document.getElementById('driveStatus');
+  statusEl.textContent = '☁️ Buscando...';
+  try{
+    const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,webViewLink)&pageSize=1000&key=${DRIVE_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    driveFiles = data.files || [];
+    driveConectado = true;
+    statusEl.className = 'drive-status connected';
+    statusEl.textContent = `☁️ Drive conectado — ${driveFiles.length} archivos`;
+    // si hay una ficha abierta, la refrescamos para que muestre las fotos ya encontradas
+    const abierto = document.getElementById('overlay').classList.contains('open');
+    if(abierto){
+      const legAbierto = document.getElementById('modalContent').querySelector('[data-legajo]')?.dataset.legajo;
+      if(legAbierto) window.abrirFicha(legAbierto);
+    }
+  }catch(e){
+    console.error(e);
+    driveConectado = false;
+    statusEl.className = 'drive-status disconnected';
+    statusEl.textContent = '☁️ Error al conectar con Drive';
+  }
+};
+
+function buscarDocDrive(prefijo, lado){
+  const pref = (prefijo||'').toLowerCase();
+  if(!pref) return null;
+  return driveFiles.find(f=>{
+    const n = f.name.toLowerCase();
+    return n.startsWith(pref+'_') && n.includes('lic') && n.includes(lado);
+  });
+}
+
+window.abrirPreview = (titulo, fileId)=>{
+  document.getElementById('previewTitulo').textContent = titulo;
+  document.getElementById('previewImg').src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+  document.getElementById('previewOverlay').classList.add('show');
+};
+window.cerrarPreview = ()=> document.getElementById('previewOverlay').classList.remove('show');
 
 // ══════════════════════════════════
 // AUTH
@@ -315,6 +416,7 @@ function iniciarSyncAgentes(){
     AGENTES = {};
     snap.forEach(d=> AGENTES[d.id] = d.data());
     renderGrid();
+    renderAlertas();
   });
   // La licencia de conducir vive en personal_legajos (módulo Documentación Personal).
   // El ID del doc ahí no es el legajo, así que indexamos por el campo "legajo".
@@ -326,6 +428,7 @@ function iniciarSyncAgentes(){
       if(leg) LEGAJOS[leg] = data;
     });
     renderGrid();
+    renderAlertas();
   });
 }
 
@@ -382,6 +485,73 @@ function renderGrid(){
 }
 
 // ══════════════════════════════════
+// ALERTAS — todo lo que está "en curso" o por vencer, de un vistazo
+// ══════════════════════════════════
+function renderAlertas(){
+  const cont = document.getElementById('alertasList');
+  const badge = document.getElementById('alertasBadge');
+
+  const vencidas = [], porVencer = [], vacacionesEnCurso = [], artEnCurso = [], partesVigentes = [];
+
+  // Licencias de conducir (desde personal_legajos)
+  Object.keys(LEGAJOS).forEach(leg=>{
+    const l = LEGAJOS[leg];
+    const dias = diasHastaVenc(l.vencimiento);
+    if(dias === null) return;
+    const nombre = (AGENTES[leg] && AGENTES[leg].nombre) || l.nombre || '(sin nombre)';
+    if(dias < 0) vencidas.push({leg, nombre, detalle: `Vencida hace ${Math.abs(dias)} días`});
+    else if(dias <= 30) porVencer.push({leg, nombre, detalle: `Vence en ${dias} días`});
+  });
+
+  // Agentes (vacaciones / ART / partes médicos)
+  Object.keys(AGENTES).forEach(leg=>{
+    const a = AGENTES[leg];
+    if(a.vacaciones && a.vacaciones.enCurso){
+      vacacionesEnCurso.push({leg, nombre:a.nombre, detalle:`Del ${a.vacaciones.enCurso.desde} al ${a.vacaciones.enCurso.hasta}`});
+    }
+    if(a.art && a.art.siniestro){
+      artEnCurso.push({leg, nombre:a.nombre, detalle: a.art.fecha ? `Desde ${a.art.fecha}` : 'Siniestro en curso'});
+    }
+    if(a.partes && a.partes.vigente){
+      partesVigentes.push({leg, nombre:a.nombre, detalle:`Del ${a.partes.desde} al ${a.partes.hasta}`});
+    }
+  });
+
+  const totalAlertas = vencidas.length + porVencer.length + vacacionesEnCurso.length + artEnCurso.length + partesVigentes.length;
+  if(totalAlertas > 0){ badge.style.display='inline-block'; badge.textContent = totalAlertas; }
+  else { badge.style.display='none'; }
+
+  function grupo(clase, titulo, items, colorDetail){
+    if(items.length === 0) return '';
+    return `
+    <div class="alerta-grupo ${clase}">
+      <h3>${titulo} <span class="cnt">${items.length}</span></h3>
+      ${items.map(it=>`
+        <div class="alerta-item" onclick="abrirFicha('${it.leg}')">
+          <div>
+            <div class="ai-nom">${it.nombre}</div>
+            <div class="ai-sub">Legajo ${it.leg}</div>
+          </div>
+          <div class="ai-detail" style="color:${colorDetail}">${it.detalle}</div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  const html = [
+    grupo('venc', '🔴 Licencias vencidas', vencidas, 'var(--red-foto)'),
+    grupo('prox', '🟠 Licencias por vencer (30 días)', porVencer, 'var(--amber)'),
+    grupo('info', '🏖️ De vacaciones ahora', vacacionesEnCurso, 'var(--blue2)'),
+    grupo('venc', '🛡️ ART — siniestro en curso', artEnCurso, 'var(--red-foto)'),
+    grupo('prox', '🩺 Parte médico vigente', partesVigentes, 'var(--amber)')
+  ].join('');
+
+  cont.innerHTML = totalAlertas === 0
+    ? `<div class="empty-state">✓ Sin alertas activas por el momento.</div>`
+    : html;
+}
+
+// ══════════════════════════════════
 // FICHA COMPLETA (modal)
 // ══════════════════════════════════
 window.abrirFicha = (legajo)=>{
@@ -397,6 +567,25 @@ function cupoChip(usados, cupo){
   if(restan<=0) return `<span class="chip chip-red">Cupo agotado (${usados}/${cupo})</span>`;
   if(restan<=2) return `<span class="chip chip-amber">${usados} de ${cupo} usados</span>`;
   return `<span class="chip chip-ok">${usados} de ${cupo} usados</span>`;
+}
+
+function licenciaFotosHTML(legajo){
+  const prefijo = LEGAJOS[legajo]?.prefijo;
+  if(!driveConectado){
+    return `<div style="font-size:11px;color:var(--text3);margin-top:8px;">Tocá "🔄 Actualizar Drive" en la pantalla anterior para ver las fotos.</div>`;
+  }
+  if(!prefijo){
+    return `<div style="font-size:11px;color:var(--text3);margin-top:8px;">Este agente no tiene prefijo de archivo cargado en Documentación Personal.</div>`;
+  }
+  const frente = buscarDocDrive(prefijo, 'frente');
+  const dorso  = buscarDocDrive(prefijo, 'dorso');
+  const slot = (file, label)=> file
+    ? `<div class="doc-photo-slot" onclick="abrirPreview('${label}','${file.id}')">
+         <img src="https://drive.google.com/thumbnail?id=${file.id}&sz=w400" loading="lazy" alt="${label}" onerror="this.parentElement.innerHTML='📄'">
+         <div class="lbl">${label}</div>
+       </div>`
+    : `<div class="doc-photo-slot missing">—</div>`;
+  return `<div class="doc-photos">${slot(frente,'Frente')}${slot(dorso,'Dorso')}</div>`;
 }
 
 function fichaHTML(legajo, a){
@@ -430,7 +619,7 @@ function fichaHTML(legajo, a){
   const acc = a.credenciales || {};
 
   return `
-  <div class="ficha">
+  <div class="ficha" data-legajo="${legajo}">
     <div class="f-head">
       ${a.foto ? `<img class="avatar-lg" src="${a.foto}">` : `<div class="avatar-lg">${iniciales(a.nombre||'')}</div>`}
       <div>
@@ -451,29 +640,42 @@ function fichaHTML(legajo, a){
     <div class="f-block">
       <h4>Licencia de Conducir ${licChip(legajo).replace('mc-chip','chip')}</h4>
       <div class="f-row"><span>Vencimiento</span><span>${LEGAJOS[legajo] ? formatFechaYMD(LEGAJOS[legajo].vencimiento) : 'Sin cargar en Documentación Personal'}</span></div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:6px;font-style:italic">Sincronizado desde el módulo Documentación Personal — para editarlo, hacelo ahí.</div>
+      ${licenciaFotosHTML(legajo)}
+      <div style="font-size:10.5px;color:var(--text3);margin-top:8px;font-style:italic">Vencimiento y prefijo de archivo se editan en Documentación Personal. Las fotos se buscan en Drive por ese prefijo — nada se sube desde acá.</div>
     </div>
 
     <div class="f-block">
-      <h4>Licencias Varias — Vacaciones ${vacChip}</h4>
-      ${vacRange}
-      <div class="f-row" style="margin-top:${vac.enCurso?'8px':'0'}"><span>Saldo disponible</span><span style="color:var(--green)">${vac.saldo ?? '-'} días</span></div>
-      <div class="f-row"><span>N° trámite e-Legajo</span>${tramiteChip}</div>
+      <h4>Licencias Varias — Vacaciones <button class="btn-edit" onclick="toggleEditVacaciones('${legajo}')">✏️ Editar</button></h4>
+      <div id="vac-view-${legajo}">
+        ${vacChip}
+        ${vacRange}
+        <div class="f-row" style="margin-top:8px"><span>Saldo disponible</span><span style="color:var(--green)">${vac.saldo ?? '-'} días</span></div>
+        <div class="f-row"><span>N° trámite e-Legajo</span>${tramiteChip}</div>
+      </div>
     </div>
 
     <div class="f-block">
-      <h4>ART ${artChip}</h4>
-      ${artDetail}
+      <h4>ART <button class="btn-edit" onclick="toggleEditArt('${legajo}')">✏️ Editar</button></h4>
+      <div id="art-view-${legajo}">
+        ${artChip}
+        ${artDetail}
+      </div>
     </div>
 
     <div class="f-block">
-      <h4>Partes Médicos ${parteChip}</h4>
-      ${parteDetail}
+      <h4>Partes Médicos <button class="btn-edit" onclick="toggleEditPartes('${legajo}')">✏️ Editar</button></h4>
+      <div id="partes-view-${legajo}">
+        ${parteChip}
+        ${parteDetail}
+      </div>
     </div>
 
     <div class="f-block">
-      <h4>Certificados Escolares ${certChip}</h4>
-      <div class="f-row"><span>Cantidad de hijos</span><span>${cert.hijos ?? '-'}</span></div>
+      <h4>Certificados Escolares <button class="btn-edit" onclick="toggleEditCertificados('${legajo}')">✏️ Editar</button></h4>
+      <div id="cert-view-${legajo}">
+        ${certChip}
+        <div class="f-row"><span>Cantidad de hijos</span><span>${cert.hijos ?? '-'}</span></div>
+      </div>
     </div>
 
     <div class="f-block">
@@ -489,10 +691,13 @@ function fichaHTML(legajo, a){
     </div>
 
     <div class="f-block">
-      <h4>Artículos ${cupoChip(usados, cupo)}</h4>
-      <div class="cupo-bar">${dots}</div>
-      ${artiList}
-      <div style="font-size:10.5px;color:var(--text3);margin-top:8px;font-style:italic">Cupo fijo de ${cupo} artículos por año por agente.</div>
+      <h4>Artículos <button class="btn-edit" onclick="toggleEditArticulos('${legajo}')">✏️ Editar</button></h4>
+      <div id="arti-view-${legajo}">
+        <div class="chip-line">${cupoChip(usados, cupo)}</div>
+        <div class="cupo-bar">${dots}</div>
+        ${artiList}
+        <div style="font-size:10.5px;color:var(--text3);margin-top:8px;font-style:italic">Cupo fijo de ${cupo} artículos por año por agente.</div>
+      </div>
     </div>
 
     <div class="f-block" style="border-bottom:none">
@@ -555,6 +760,171 @@ window.toggleEditBasico = async (legajo)=>{
     btn.textContent = '✏️ Editar';
   }
 };
+
+// ---- conversion de fechas DD/MM/YYYY <-> YYYY-MM-DD (para <input type="date">) ----
+function dmyToIso(dmy){
+  if(!dmy) return '';
+  const [d,m,y] = dmy.split('/');
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+function isoToDmy(iso){
+  if(!iso) return null;
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function isoEnCurso(desdeIso, hastaIso){
+  if(!desdeIso || !hastaIso) return false;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const fd = new Date(desdeIso+'T00:00:00');
+  const fh = new Date(hastaIso+'T00:00:00');
+  return fd <= hoy && hoy <= fh;
+}
+
+// ---- VACACIONES ----
+window.toggleEditVacaciones = async (legajo)=>{
+  const a = AGENTES[legajo] || {};
+  const vac = a.vacaciones || {};
+  const view = document.getElementById('vac-view-'+legajo);
+  const btn = view.previousElementSibling.querySelector('.btn-edit');
+  if(btn.textContent.includes('Editar')){
+    const desdeIso = vac.enCurso ? dmyToIso(vac.enCurso.desde) : '';
+    const hastaIso = vac.enCurso ? dmyToIso(vac.enCurso.hasta) : '';
+    view.innerHTML = `
+      <div class="f-row"><span>Desde</span><input type="date" id="edit-vacDesde-${legajo}" value="${desdeIso}"></div>
+      <div class="f-row"><span>Hasta</span><input type="date" id="edit-vacHasta-${legajo}" value="${hastaIso}"></div>
+      <div class="f-row"><span>Saldo (días)</span><input type="number" id="edit-vacSaldo-${legajo}" value="${vac.saldo ?? ''}"></div>
+      <div class="f-row"><span>N° trámite e-Legajo</span><input type="text" id="edit-vacTramite-${legajo}" value="${vac.tramiteUltimo||''}"></div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:6px;font-style:italic">Dejá Desde/Hasta vacíos si no está de vacaciones ahora.</div>`;
+    btn.textContent = '💾 Guardar';
+  } else {
+    const desdeIso = document.getElementById(`edit-vacDesde-${legajo}`).value;
+    const hastaIso = document.getElementById(`edit-vacHasta-${legajo}`).value;
+    const saldo = document.getElementById(`edit-vacSaldo-${legajo}`).value;
+    const tramite = document.getElementById(`edit-vacTramite-${legajo}`).value.trim();
+    const enCurso = isoEnCurso(desdeIso, hastaIso) ? { desde: isoToDmy(desdeIso), hasta: isoToDmy(hastaIso), tramite: tramite||null } : null;
+    const nuevo = { saldo: saldo!==''?Number(saldo):null, enCurso, tramiteUltimo: tramite||null };
+    await setDoc(doc(db,'personal_agentes',legajo), { vacaciones: nuevo }, { merge:true });
+    AGENTES[legajo] = { ...(AGENTES[legajo]||{}), vacaciones: nuevo };
+    document.getElementById('modalContent').innerHTML = fichaHTML(legajo, AGENTES[legajo]);
+  }
+};
+
+// ---- ART ----
+window.toggleEditArt = async (legajo)=>{
+  const a = AGENTES[legajo] || {};
+  const art = a.art || {};
+  const view = document.getElementById('art-view-'+legajo);
+  const btn = view.previousElementSibling.querySelector('.btn-edit');
+  if(btn.textContent.includes('Editar')){
+    view.innerHTML = `
+      <div class="f-row"><span>¿Siniestro en curso?</span><input type="checkbox" id="edit-artSiniestro-${legajo}" ${art.siniestro?'checked':''} style="width:auto"></div>
+      <div class="f-row"><span>Fecha del hecho</span><input type="date" id="edit-artFecha-${legajo}" value="${dmyToIso(art.fecha)}"></div>
+      <div class="f-row"><span>N° de siniestro</span><input type="text" id="edit-artNro-${legajo}" value="${art.nro||''}"></div>`;
+    btn.textContent = '💾 Guardar';
+  } else {
+    const siniestro = document.getElementById(`edit-artSiniestro-${legajo}`).checked;
+    const fechaIso = document.getElementById(`edit-artFecha-${legajo}`).value;
+    const nro = document.getElementById(`edit-artNro-${legajo}`).value.trim();
+    const nuevo = siniestro ? { siniestro:true, fecha: isoToDmy(fechaIso), nro } : { siniestro:false };
+    await setDoc(doc(db,'personal_agentes',legajo), { art: nuevo }, { merge:true });
+    AGENTES[legajo] = { ...(AGENTES[legajo]||{}), art: nuevo };
+    document.getElementById('modalContent').innerHTML = fichaHTML(legajo, AGENTES[legajo]);
+  }
+};
+
+// ---- PARTES MEDICOS ----
+window.toggleEditPartes = async (legajo)=>{
+  const a = AGENTES[legajo] || {};
+  const partes = a.partes || {};
+  const view = document.getElementById('partes-view-'+legajo);
+  const btn = view.previousElementSibling.querySelector('.btn-edit');
+  if(btn.textContent.includes('Editar')){
+    view.innerHTML = `
+      <div class="f-row"><span>Desde</span><input type="date" id="edit-parteDesde-${legajo}" value="${dmyToIso(partes.desde)}"></div>
+      <div class="f-row"><span>Hasta</span><input type="date" id="edit-parteHasta-${legajo}" value="${dmyToIso(partes.hasta)}"></div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:6px;font-style:italic">Vigente se calcula solo comparando estas fechas con hoy.</div>`;
+    btn.textContent = '💾 Guardar';
+  } else {
+    const desdeIso = document.getElementById(`edit-parteDesde-${legajo}`).value;
+    const hastaIso = document.getElementById(`edit-parteHasta-${legajo}`).value;
+    const vigente = isoEnCurso(desdeIso, hastaIso);
+    const nuevo = vigente ? { vigente:true, desde: isoToDmy(desdeIso), hasta: isoToDmy(hastaIso) } : { vigente:false };
+    await setDoc(doc(db,'personal_agentes',legajo), { partes: nuevo }, { merge:true });
+    AGENTES[legajo] = { ...(AGENTES[legajo]||{}), partes: nuevo };
+    document.getElementById('modalContent').innerHTML = fichaHTML(legajo, AGENTES[legajo]);
+  }
+};
+
+// ---- CERTIFICADOS ESCOLARES ----
+window.toggleEditCertificados = async (legajo)=>{
+  const a = AGENTES[legajo] || {};
+  const cert = a.certificados || {};
+  const view = document.getElementById('cert-view-'+legajo);
+  const btn = view.previousElementSibling.querySelector('.btn-edit');
+  if(btn.textContent.includes('Editar')){
+    view.innerHTML = `
+      <div class="f-row"><span>Cantidad de hijos</span><input type="number" id="edit-certHijos-${legajo}" value="${cert.hijos ?? ''}"></div>
+      <div class="f-row"><span>¿Presentó certificados?</span><input type="checkbox" id="edit-certPresentado-${legajo}" ${cert.presentado?'checked':''} style="width:auto"></div>`;
+    btn.textContent = '💾 Guardar';
+  } else {
+    const hijos = document.getElementById(`edit-certHijos-${legajo}`).value;
+    const presentado = document.getElementById(`edit-certPresentado-${legajo}`).checked;
+    const nuevo = { hijos: hijos!==''?Number(hijos):null, presentado };
+    await setDoc(doc(db,'personal_agentes',legajo), { certificados: nuevo }, { merge:true });
+    AGENTES[legajo] = { ...(AGENTES[legajo]||{}), certificados: nuevo };
+    document.getElementById('modalContent').innerHTML = fichaHTML(legajo, AGENTES[legajo]);
+  }
+};
+
+// ---- ARTICULOS (agregar / quitar, cupo 6/año) ----
+window.toggleEditArticulos = (legajo)=>{
+  const a = AGENTES[legajo] || {};
+  const detalle = a.articulosDetalle || [];
+  const view = document.getElementById('arti-view-'+legajo);
+  const btn = view.previousElementSibling.querySelector('.btn-edit');
+  if(btn.textContent.includes('Editar')){
+    const lista = detalle.length ? detalle.map((f,i)=>`
+      <div class="arti-item"><span>${f}</span><button class="btn-edit" style="color:var(--red-foto);border-color:var(--red-foto)" onclick="quitarArticulo('${legajo}',${i})">Quitar</button></div>
+    `).join('') : `<div style="font-size:12px;color:var(--text3);font-style:italic">Sin artículos cargados.</div>`;
+    view.innerHTML = `
+      ${lista}
+      <div class="f-row" style="margin-top:10px"><span>Agregar fecha</span><input type="date" id="edit-artiNueva-${legajo}"></div>
+      <button class="btn-edit" style="width:100%;margin-top:6px" onclick="agregarArticulo('${legajo}')">+ Agregar artículo</button>`;
+    btn.textContent = '✓ Listo';
+  } else {
+    document.getElementById('modalContent').innerHTML = fichaHTML(legajo, AGENTES[legajo]);
+  }
+};
+function redibujarEdicionArticulos(legajo){
+  const a = AGENTES[legajo] || {};
+  const detalle = a.articulosDetalle || [];
+  const view = document.getElementById('arti-view-'+legajo);
+  const lista = detalle.length ? detalle.map((f,i)=>`
+    <div class="arti-item"><span>${f}</span><button class="btn-edit" style="color:var(--red-foto);border-color:var(--red-foto)" onclick="quitarArticulo('${legajo}',${i})">Quitar</button></div>
+  `).join('') : `<div style="font-size:12px;color:var(--text3);font-style:italic">Sin artículos cargados.</div>`;
+  view.innerHTML = `
+    ${lista}
+    <div class="f-row" style="margin-top:10px"><span>Agregar fecha</span><input type="date" id="edit-artiNueva-${legajo}"></div>
+    <button class="btn-edit" style="width:100%;margin-top:6px" onclick="agregarArticulo('${legajo}')">+ Agregar artículo</button>`;
+}
+window.agregarArticulo = async (legajo)=>{
+  const iso = document.getElementById(`edit-artiNueva-${legajo}`).value;
+  if(!iso) return;
+  const a = AGENTES[legajo] || {};
+  const detalle = [...(a.articulosDetalle||[]), isoToDmy(iso)];
+  await setDoc(doc(db,'personal_agentes',legajo), { articulosDetalle: detalle, articulosUsados: detalle.length }, { merge:true });
+  AGENTES[legajo] = { ...(AGENTES[legajo]||{}), articulosDetalle: detalle, articulosUsados: detalle.length };
+  redibujarEdicionArticulos(legajo);
+};
+window.quitarArticulo = async (legajo, idx)=>{
+  const a = AGENTES[legajo] || {};
+  const detalle = (a.articulosDetalle||[]).filter((_,i)=>i!==idx);
+  await setDoc(doc(db,'personal_agentes',legajo), { articulosDetalle: detalle, articulosUsados: detalle.length }, { merge:true });
+  AGENTES[legajo] = { ...(AGENTES[legajo]||{}), articulosDetalle: detalle, articulosUsados: detalle.length };
+  redibujarEdicionArticulos(legajo);
+};
+
+
 
 // ══════════════════════════════════
 // IMPORTADOR DE EXCEL (misma lógica validada en Python)

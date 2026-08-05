@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Usuarios de Recibo — Dirección de Ejecución en Red Vial</title>
+<style>
+:root{
+  --blue:#1a3a6b;--blue2:#1e4d8c;--blue3:#2563b0;--blue-light:#e8f0fb;
+  --green:#27ae60;--red:#c0392b;--amber:#d68910;--bg:#f0f3f8;--white:#fff;
+  --border:#dde3ed;--text:#1a2236;--text2:#5a6a84;--text3:#9aa4b8;
+  --radius:10px;--shadow:0 2px 12px rgba(26,58,107,.08);--shadow-md:0 4px 20px rgba(26,58,107,.14);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);padding-bottom:40px}
+
+/* ---- auth gate (mismo patrón que PlanificacionVial.html) ---- */
+.auth-gate{position:fixed;inset:0;background:#1a3a5c;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.auth-box{background:#fff;border-radius:12px;padding:32px 28px;max-width:380px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.auth-box h2{font-size:15px;color:#1a3a5c;text-align:center;margin-bottom:18px}
+.auth-box h3{font-size:14px;color:#1a3a5c;margin-bottom:12px}
+.auth-box label{display:block;font-size:12.5px;color:#445;margin-top:9px;margin-bottom:4px}
+.auth-box input{width:100%;padding:9px 10px;border:1px solid #c8d4e0;border-radius:6px;font-size:13.5px;box-sizing:border-box}
+.auth-box button{width:100%;justify-content:center;margin-top:14px;padding:10px;border:none;border-radius:6px;background:#1a3a5c;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer}
+.auth-box button.btn-o{background:#fff;color:#1a3a5c;border:1px solid #c8d4e0}
+.auth-box p{font-size:12.5px;text-align:center;margin-top:12px;color:#667}
+.auth-box a{color:#2c5f8a;font-weight:600;cursor:pointer}
+.auth-error{color:#c0392b;font-size:12px;margin-top:8px;text-align:center;min-height:14px}
+.no-access{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:9998;padding:24px;text-align:center}
+
+/* ---- header ---- */
+.header{background:linear-gradient(120deg,var(--blue) 0%,var(--blue2) 100%);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.header-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.back-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.header-title{font-size:14.5px;font-weight:800;text-align:center;flex:1}
+.header-sub{font-size:10.5px;opacity:.85;text-align:center;margin-top:2px}
+.hdr-user{font-size:11px;color:#fff;opacity:.9}
+
+/* ---- content ---- */
+.wrap{max-width:640px;margin:0 auto;padding:14px}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.search{flex:1;min-width:150px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:var(--white)}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--blue3);color:#fff}
+.btn-outline{background:var(--white);color:var(--blue3);border:1px solid var(--blue3)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:6px 10px;font-size:11.5px;border-radius:6px}
+.admin-bar{background:var(--blue-light);border:1px dashed var(--blue3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--blue2);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+
+.stat-row{display:flex;gap:8px;margin-bottom:12px}
+.stat-card{flex:1;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:9px 10px}
+.stat-card .s-val{font-size:19px;font-weight:900;color:var(--blue)}
+.stat-card .s-lbl{font-size:10px;color:var(--text2);font-weight:600}
+
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:10px;transition:box-shadow .15s}
+.card:hover{box-shadow:var(--shadow-md)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card-name{font-size:13.5px;font-weight:800;color:var(--text)}
+.card-legajo{font-size:11px;color:var(--text3);font-weight:600}
+.card-actions{display:flex;gap:6px}
+.icon-btn{background:var(--bg);border:none;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:14px}
+.icon-btn:hover{background:var(--blue-light);color:var(--blue3)}
+.cred-row{display:flex;gap:14px;margin-top:9px;flex-wrap:wrap}
+.cred-field{flex:1;min-width:120px}
+.cred-label{font-size:9.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.cred-value{font-size:13px;font-weight:700;color:var(--text);font-family:'Consolas',monospace;display:flex;align-items:center;gap:6px;margin-top:2px}
+.cred-empty{color:var(--text3);font-style:italic;font-weight:400;font-size:12px}
+.copy-mini{background:none;border:none;color:var(--blue3);cursor:pointer;font-size:11px;padding:2px 4px}
+
+.empty-state{text-align:center;padding:40px 16px;color:var(--text3)}
+
+/* ---- modal ---- */
+.modal-bg{position:fixed;inset:0;background:rgba(20,30,50,.5);display:none;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:#fff;border-radius:12px;padding:20px;max-width:400px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
+.modal h3{margin:0 0 14px;font-size:15px;color:var(--blue)}
+.modal label{display:block;font-size:12px;color:var(--text2);margin-top:10px;margin-bottom:4px;font-weight:600}
+.modal input{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13.5px}
+.modal-actions{display:flex;gap:8px;margin-top:18px}
+.modal-actions .btn{flex:1;justify-content:center}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2236;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:.25s;z-index:999;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ══════════ AUTH GATE ══════════ -->
+<div class="auth-gate" id="authGate">
+  <div class="auth-box">
+    <div id="authLoading" style="text-align:center;color:#556;font-size:13px">Cargando…</div>
+
+    <div id="authLoginForm" style="display:none">
+      <h2>🔒 Usuarios de Recibo</h2>
+      <label>Email</label><input type="email" id="li-email" placeholder="tu@email.com">
+      <label>Contraseña</label><input type="password" id="li-pass">
+      <div class="auth-error" id="authError"></div>
+      <button onclick="hacerLogin()">Ingresar</button>
+      <p>¿No tenés cuenta? <a onclick="mostrarSignup()">Registrate</a></p>
+    </div>
+
+    <div id="authSignupForm" style="display:none">
+      <h3>Crear cuenta</h3>
+      <label>Nombre</label><input type="text" id="su-nombre">
+      <label>Email</label><input type="email" id="su-email">
+      <label>Contraseña</label><input type="password" id="su-pass">
+      <div class="auth-error" id="authError2"></div>
+      <button onclick="hacerSignup()">Registrarme</button>
+      <button class="btn-o" onclick="mostrarLogin()">Volver</button>
+    </div>
+
+    <div id="authPending" style="display:none;text-align:center">
+      <h3>⏳ Cuenta pendiente</h3>
+      <p>Tu cuenta fue creada pero todavía no fue aprobada por un administrador.</p>
+      <button class="btn-o" onclick="hacerLogout()">Salir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SIN ACCESO AL MÓDULO ══════════ -->
+<div class="no-access" id="noAccess">
+  <div>
+    <h3 style="color:var(--blue)">🚫 Sin acceso a este módulo</h3>
+    <p style="color:var(--text2);font-size:13px;max-width:320px">Tu usuario no tiene permiso para ver Usuarios de Recibo. Pedile a un administrador que te lo habilite.</p>
+    <a href="index.html" class="btn btn-primary" style="margin-top:10px;display:inline-flex">← Volver al inicio</a>
+  </div>
+</div>
+
+<!-- ══════════ HEADER ══════════ -->
+<div class="header">
+  <div class="header-row">
+    <a href="index.html" class="back-btn">← Inicio</a>
+    <div>
+      <div class="header-title">🔑 Usuarios de Recibo</div>
+      <div class="header-sub">Credenciales del portal de recibos por agente</div>
+    </div>
+    <div class="hdr-user" id="hdrUsuario"></div>
+  </div>
+</div>
+
+<div class="wrap" id="mainContent" style="display:none">
+
+  <div class="admin-bar" id="adminBar" style="display:none">
+    <span>👑 Panel admin</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="cargarSemillaInicial()">Cargar datos iniciales (58)</button>
+      <button class="btn btn-outline btn-sm" onclick="abrirModalAgente()">+ Agregar agente</button>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="s-val" id="statTotal">0</div><div class="s-lbl">Agentes</div></div>
+    <div class="stat-card"><div class="s-val" id="statCompletos">0</div><div class="s-lbl">Con credenciales</div></div>
+    <div class="stat-card"><div class="s-val" id="statFaltan">0</div><div class="s-lbl">Sin cargar</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search" id="buscador" placeholder="Buscar por nombre, legajo o usuario…" oninput="renderLista()">
+  </div>
+
+  <div id="listaAgentes"></div>
+  <div class="empty-state" id="emptyState" style="display:none">Sin resultados.</div>
+</div>
+
+<!-- ══════════ MODAL AGENTE ══════════ -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitulo">Agente</h3>
+    <input type="hidden" id="m-docid">
+    <label>Legajo</label><input type="text" id="m-legajo" placeholder="Ej: 223924">
+    <label>Apellido y nombre</label><input type="text" id="m-nombre" placeholder="Ej: AMANTE, Alejandra Roxana">
+    <label>Usuario (portal recibo)</label><input type="text" id="m-usuario" placeholder="Ej: aamante">
+    <label>Contraseña</label><input type="text" id="m-clave" placeholder="Ej: Redvial00">
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarAgente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+// ══════════════════════════════════
+// FIREBASE — mismo proyecto que index.html / PlanificacionVial.html
+// ══════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  collection, getDocs, onSnapshot, query, orderBy
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCiQuc-g5fNFdPUqPO1FC8xMbDyZGwn2u8",
+  authDomain: "ventana-integradora.firebaseapp.com",
+  projectId: "ventana-integradora",
+  storageBucket: "ventana-integradora.firebasestorage.app",
+  messagingSenderId: "263265819564",
+  appId: "1:263265819564:web:e7e7583eb4fefe9bdff809"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+setPersistence(auth, browserSessionPersistence);
+const db    = initializeFirestore(fbApp, {
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+});
+
+// Nombre del módulo tal como debe aparecer en el campo de permisos del usuario
+// (usuarios/{uid}.modulos = { UsuariosRecibo: true, ... }).
+// OJO Diego: si tu panel admin en PlanificacionVial.html usa otro nombre de campo
+// para permisos por módulo, avisame y ajusto esta única línea de abajo.
+const MODULO = "UsuariosRecibo";
+
+let currentUser = null;
+let agentes = [];       // cache local para búsqueda instantánea
+let unsubAgentes = null;
+
+// ══════════════════════════════════
+// AUTH (idéntico patrón a PlanificacionVial.html)
+// ══════════════════════════════════
+function setAuthView(view){
+  ['authLoading','authLoginForm','authSignupForm','authPending'].forEach(id=>{
+    document.getElementById(id).style.display = (id===view) ? 'block' : 'none';
+  });
+}
+function mostrarSignup(){ setAuthView('authSignupForm'); }
+function mostrarLogin(){ setAuthView('authLoginForm'); }
+
+function traducirErrorAuth(code){
+  const m={
+    'auth/invalid-email':'Email inválido.',
+    'auth/user-not-found':'No existe una cuenta con ese email.',
+    'auth/wrong-password':'Contraseña incorrecta.',
+    'auth/invalid-credential':'Email o contraseña incorrectos.',
+    'auth/email-already-in-use':'Ya existe una cuenta con ese email.',
+    'auth/weak-password':'La contraseña es muy débil (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Demasiados intentos. Probá de nuevo en unos minutos.',
+    'auth/network-request-failed':'Sin conexión a internet. Probá de nuevo.',
+  };
+  return m[code] || ('Ocurrió un error ('+code+'). Probá de nuevo.');
+}
+
+async function hacerLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const err=document.getElementById('authError'); err.textContent='';
+  if(!email||!pass){ err.textContent='Completá email y contraseña.'; return; }
+  try{ await signInWithEmailAndPassword(auth,email,pass); }
+  catch(e){ err.textContent=traducirErrorAuth(e.code); }
+}
+
+async function hacerSignup(){
+  const nombre=document.getElementById('su-nombre').value.trim();
+  const email=document.getElementById('su-email').value.trim();
+  const pass=document.getElementById('su-pass').value;
+  const err=document.getElementById('authError2'); err.textContent='';
+  if(!nombre||!email||!pass){ err.textContent='Completá todos los campos.'; return; }
+  if(pass.length<6){ err.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+  try{
+    const cred=await createUserWithEmailAndPassword(auth,email,pass);
+    await setDoc(doc(db,'usuarios',cred.user.uid),{
+      email, nombre, rol:'usuario', aprobado:false, modulos:{}, creadoEn:serverTimestamp()
+    });
+  }catch(e){ err.textContent=traducirErrorAuth(e.code); }
+}
+
+function hacerLogout(){
+  if(!confirm('¿Cerrar sesión?')) return;
+  signOut(auth);
+}
+
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){
+    currentUser=null;
+    if(unsubAgentes){ unsubAgentes(); unsubAgentes=null; }
+    document.getElementById('authGate').style.display='flex';
+    document.getElementById('mainContent').style.display='none';
+    document.getElementById('noAccess').style.display='none';
+    document.getElementById('hdrUsuario').textContent='';
+    setAuthView('authLoginForm');
+    return;
+  }
+  try{
+    const snap=await getDoc(doc(db,'usuarios',user.uid));
+    if(!snap.exists() || !snap.data().aprobado){
+      currentUser=null;
+      document.getElementById('authGate').style.display='flex';
+      setAuthView('authPending');
+      return;
+    }
+    const datos=snap.data();
+    const esAdmin = datos.rol==='admin';
+    const tieneAcceso = esAdmin || (datos.modulos && datos.modulos[MODULO]===true);
+
+    currentUser={ uid:user.uid, email:datos.email, nombre:datos.nombre, rol:datos.rol, esAdmin };
+    document.getElementById('authGate').style.display='none';
+    document.getElementById('hdrUsuario').textContent = `👤 ${currentUser.nombre}${esAdmin?' (admin)':''}`;
+
+    if(!tieneAcceso){
+      document.getElementById('noAccess').style.display='flex';
+      document.getElementById('mainContent').style.display='none';
+      return;
+    }
+
+    document.getElementById('noAccess').style.display='none';
+    document.getElementById('mainContent').style.display='block';
+    document.getElementById('adminBar').style.display = esAdmin ? 'flex' : 'none';
+    iniciarListado();
+  }catch(e){
+    console.error(e);
+  }
+});
+
+// ══════════════════════════════════
+// LISTADO EN VIVO
+// ══════════════════════════════════
+function iniciarListado(){
+  if(unsubAgentes) return; // ya suscripto
+  const q = query(collection(db,'personal_agentes'), orderBy('nombreCompleto'));
+  unsubAgentes = onSnapshot(q, snap=>{
+    agentes = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderLista();
+  }, err=>{
+    console.error(err);
+    showToast('Error leyendo agentes: '+err.message, false);
+  });
+}
+
+function renderLista(){
+  const filtro = document.getElementById('buscador').value.trim().toLowerCase();
+  const cont = document.getElementById('listaAgentes');
+  const vacio = document.getElementById('emptyState');
+
+  const filtrados = agentes.filter(a=>{
+    if(!filtro) return true;
+    return (a.nombreCompleto||'').toLowerCase().includes(filtro)
+        || (a.legajo||'').toLowerCase().includes(filtro)
+        || (a.usuario||'').toLowerCase().includes(filtro);
+  });
+
+  document.getElementById('statTotal').textContent = agentes.length;
+  document.getElementById('statCompletos').textContent = agentes.filter(a=>a.usuario && a.clave).length;
+  document.getElementById('statFaltan').textContent = agentes.filter(a=>!a.usuario || !a.clave).length;
+
+  cont.innerHTML = '';
+  vacio.style.display = filtrados.length ? 'none' : 'block';
+
+  filtrados.forEach(a=>{
+    const div = document.createElement('div');
+    div.className = 'card';
+    const faltaUsuario = !a.usuario;
+    const faltaClave = !a.clave;
+    div.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-name">${escapeHtml(a.nombreCompleto||'(sin nombre)')}</div>
+          <div class="card-legajo">Legajo ${escapeHtml(a.legajo||'—')}</div>
+        </div>
+        <div class="card-actions">
+          ${currentUser.esAdmin ? `
+            <button class="icon-btn" title="Editar" onclick="abrirModalAgente('${a.id}')">✏️</button>
+            <button class="icon-btn" title="Eliminar" onclick="eliminarAgente('${a.id}','${escapeHtml(a.nombreCompleto||'')}')">🗑️</button>
+          ` : ''}
+        </div>
+      </div>
+      <div class="cred-row">
+        <div class="cred-field">
+          <div class="cred-label">Usuario</div>
+          <div class="cred-value">
+            ${faltaUsuario ? '<span class="cred-empty">sin cargar</span>' : escapeHtml(a.usuario)}
+            ${!faltaUsuario ? `<button class="copy-mini" onclick="copiar('${escapeHtml(a.usuario)}','Usuario')">copiar</button>` : ''}
+          </div>
+        </div>
+        <div class="cred-field">
+          <div class="cred-label">Contraseña</div>
+          <div class="cred-value">
+            ${faltaClave ? '<span class="cred-empty">sin cargar</span>' : escapeHtml(a.clave)}
+            ${!faltaClave ? `<button class="copy-mini" onclick="copiar('${escapeHtml(a.clave)}','Contraseña')">copiar</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    cont.appendChild(div);
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function copiar(texto, etiqueta){
+  navigator.clipboard.writeText(texto).then(()=>{
+    showToast(`${etiqueta} copiado ✓`, true);
+  }).catch(()=>{
+    showToast('No se pudo copiar', false);
+  });
+}
+
+// ══════════════════════════════════
+// ALTA / EDICIÓN
+// ══════════════════════════════════
+function abrirModalAgente(id){
+  document.getElementById('m-docid').value = id || '';
+  if(id){
+    const a = agentes.find(x=>x.id===id);
+    document.getElementById('modalTitulo').textContent = 'Editar agente';
+    document.getElementById('m-legajo').value = a.legajo || '';
+    document.getElementById('m-nombre').value = a.nombreCompleto || '';
+    document.getElementById('m-usuario').value = a.usuario || '';
+    document.getElementById('m-clave').value = a.clave || '';
+  }else{
+    document.getElementById('modalTitulo').textContent = 'Agregar agente';
+    ['m-legajo','m-nombre','m-usuario','m-clave'].forEach(id2=>document.getElementById(id2).value='');
+  }
+  document.getElementById('modalBg').style.display='flex';
+}
+function cerrarModal(){ document.getElementById('modalBg').style.display='none'; }
+
+async function guardarAgente(){
+  if(!currentUser.esAdmin){ showToast('Solo un admin puede editar.', false); return; }
+  const id = document.getElementById('m-docid').value;
+  const legajo = document.getElementById('m-legajo').value.trim();
+  const nombreCompleto = document.getElementById('m-nombre').value.trim();
+  const usuario = document.getElementById('m-usuario').value.trim();
+  const clave = document.getElementById('m-clave').value.trim();
+
+  if(!legajo || !nombreCompleto){ showToast('Legajo y nombre son obligatorios.', false); return; }
+
+  try{
+    const docId = id || legajo;
+    await setDoc(doc(db,'personal_agentes',docId), {
+      legajo, nombreCompleto, usuario, clave, actualizadoEn: serverTimestamp()
+    }, { merge:true });
+    showToast('Guardado ✓', true);
+    cerrarModal();
+  }catch(e){
+    console.error(e);
+    showToast('Error al guardar: '+e.message, false);
+  }
+}
+
+async function eliminarAgente(id, nombre){
+  if(!currentUser.esAdmin){ showToast('Solo un admin puede eliminar.', false); return; }
+  if(!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
+  try{
+    await deleteDoc(doc(db,'personal_agentes',id));
+    showToast('Eliminado', true);
+  }catch(e){
+    console.error(e);
+    showToast('Error al eliminar: '+e.message, false);
+  }
+}
+
+// ══════════════════════════════════
+// SEMILLA INICIAL — datos del Excel (Usuarios e-Legajo)
+// Solo corre si la colección está vacía, para no duplicar.
+// ══════════════════════════════════
+const SEMILLA = [
+{"legajo":"223924","nombreCompleto":"AMANTE, Alejandra Roxana","usuario":"aamante","clave":"Redvial00"},
+{"legajo":"307354","nombreCompleto":"APARICIO, Alberto Enrique","usuario":"aaparicio","clave":"Redvial00"},
+{"legajo":"160434","nombreCompleto":"AQUINO, Carlos Alberto","usuario":"caquino","clave":"Redvial00"},
+{"legajo":"310097","nombreCompleto":"ARAGONES, Cristian Román","usuario":"caragones","clave":"Viapublica0"},
+{"legajo":"272623","nombreCompleto":"AYALA, Matías Fernando","usuario":"mfayala","clave":"Redvial00"},
+{"legajo":"218607","nombreCompleto":"BADIE, Carlos Adrián","usuario":"cbadie","clave":"Redvial00"},
+{"legajo":"244703","nombreCompleto":"BARICHEVAL,Elisabet Alejandra","usuario":"ebaricheval","clave":"Viapublica05"},
+{"legajo":"160425","nombreCompleto":"BARRIOS, Claudio Gustavo","usuario":"cbarrios","clave":"Redvial00"},
+{"legajo":"181985","nombreCompleto":"BURGUEÑO, José David","usuario":"jburgueño","clave":"Redvial00"},
+{"legajo":"155463","nombreCompleto":"CACERES, Alberto Ubaldo","usuario":"aucaceres","clave":""},
+{"legajo":"242590","nombreCompleto":"CHAZARRETA, José Andrés","usuario":"xx","clave":"xxx"},
+{"legajo":"209399","nombreCompleto":"CLARO, Martín Francisco","usuario":"mclaro","clave":"Redvial00"},
+{"legajo":"247249","nombreCompleto":"CORTES, Hector Ramón","usuario":"hcortes","clave":"Redvial00"},
+{"legajo":"272632","nombreCompleto":"ESCALANTE, Jorge Andrés","usuario":"jaescalante","clave":"Redvial01"},
+{"legajo":"250283","nombreCompleto":"ESPOSITO, Ezequiel Matías","usuario":"emesposito","clave":"Redvial00"},
+{"legajo":"310112","nombreCompleto":"FERNANDEZ, Ezequiel Jesús","usuario":"efernandez","clave":"Redvial01"},
+{"legajo":"310680","nombreCompleto":"FRUTOS, Mauricio Fabián","usuario":"mffrutos","clave":"Redvial00"},
+{"legajo":"123969","nombreCompleto":"FUNES, Fabián Rubén","usuario":"ffunes","clave":"Redvial00"},
+{"legajo":"215408","nombreCompleto":"GONZALEZ, Leonardo Rubén","usuario":"lrugonzalez","clave":"Redvial00"},
+{"legajo":"272614","nombreCompleto":"GUERREROS, Felix Alberto","usuario":"fguerreros","clave":"Redvial01"},
+{"legajo":"292939","nombreCompleto":"GUTIERREZ, Alejandro Javier","usuario":"ajgutierrez","clave":"Redvial01"},
+{"legajo":"312778","nombreCompleto":"HERNAN, Lautaro Joel","usuario":"lhernan","clave":"Redvial00"},
+{"legajo":"305628","nombreCompleto":"JEREZ, Diego Matías","usuario":"djerez","clave":"XXX"},
+{"legajo":"274748","nombreCompleto":"LENCINA, Marcelo Nicolás","usuario":"mnlencina","clave":"Redvial00"},
+{"legajo":"204905","nombreCompleto":"LOPEZ, Ramón Darío","usuario":"xxx","clave":"xxx"},
+{"legajo":"209423","nombreCompleto":"MAGGIO, Rubén Orlando","usuario":"rmaggio","clave":"Redvial00"},
+{"legajo":"121923","nombreCompleto":"MARTIN, Walter","usuario":"wmartin","clave":"Redvial00"},
+{"legajo":"155719","nombreCompleto":"MEDINA, Alejandro Luján","usuario":"almedina","clave":"Redvial00"},
+{"legajo":"246101","nombreCompleto":"MEDINA, Braian Nahuel","usuario":"bmedina","clave":""},
+{"legajo":"214281","nombreCompleto":"MELIAN, Mario Rubén","usuario":"mmelian","clave":"Redvial00"},
+{"legajo":"208954","nombreCompleto":"MEZA, Alberto Ramón","usuario":"ameza","clave":"Redvial00"},
+{"legajo":"220080","nombreCompleto":"MIOZZI, Andres","usuario":"amiozzi","clave":"Redvial00"},
+{"legajo":"200297","nombreCompleto":"NEIRA, Orlando","usuario":"","clave":""},
+{"legajo":"310608","nombreCompleto":"PAWLOWSKI, Marcelo Alejandro","usuario":"mpawloswski","clave":"Viapublica04"},
+{"legajo":"246855","nombreCompleto":"RAMIREZ, Adrián Leonardo","usuario":"alramirez","clave":"Redvial00"},
+{"legajo":"160470","nombreCompleto":"RAMIREZ, Claudio Javier","usuario":"cramirez","clave":"Redvial00"},
+{"legajo":"244800","nombreCompleto":"RETAMAR, Claudio Adrián","usuario":"cretamar","clave":"Viapublica04"},
+{"legajo":"340032","nombreCompleto":"RETAMAR, Matías Sebastián","usuario":"mretamar","clave":"Redvial00"},
+{"legajo":"133458","nombreCompleto":"RETAMAR, Pedro Ismael","usuario":"pretamar","clave":"Redvial00"},
+{"legajo":"155807","nombreCompleto":"RETAMAR, Roberto Carlos","usuario":"rretamar","clave":"Viapublica04"},
+{"legajo":"299758","nombreCompleto":"RETAMAR, Rodrigo Ezequiel","usuario":"reretamar","clave":""},
+{"legajo":"301868","nombreCompleto":"RODRIGUEZ, Hector Luis","usuario":"hlrodriguez","clave":"Redvial00"},
+{"legajo":"158884","nombreCompleto":"RODRIGUEZ, Pablo José","usuario":"pjrodriguez","clave":"Redvial00"},
+{"legajo":"213985","nombreCompleto":"RUIS DIAZ, Ricardo Rubén","usuario":"rruis","clave":"Redvial00"},
+{"legajo":"225748","nombreCompleto":"RUIZ, Alberto Daniel","usuario":"adruiz","clave":"Redvial00"},
+{"legajo":"240013","nombreCompleto":"SALAZAR URRUTIA, Marcelino","usuario":"masalazar","clave":"Redvial00"},
+{"legajo":"168753","nombreCompleto":"SALGUERO, Walter Alberto","usuario":"wsalguero","clave":"Viapublica03"},
+{"legajo":"260718","nombreCompleto":"SANTILLAN, Araceli Montserrat","usuario":"xxx","clave":"xxx"},
+{"legajo":"305585","nombreCompleto":"SANTILLAN, Rubén Alejandro","usuario":"rasantillan","clave":"Viapublica0"},
+{"legajo":"160489","nombreCompleto":"SCAMPERTI, Hector Norberto","usuario":"hscamperti","clave":"Redvial00"},
+{"legajo":"152714","nombreCompleto":"SOTELO, Walter Herminio","usuario":"wsotelo","clave":"Redvial00"},
+{"legajo":"296610","nombreCompleto":"SUAREZ, Pablo Fernando","usuario":"pfsuarez","clave":"Redvial00"},
+{"legajo":"310653","nombreCompleto":"TRILLO, Dylan Agustín","usuario":"","clave":""},
+{"legajo":"306845","nombreCompleto":"TRILLO, Mario Andrés","usuario":"mtrillo","clave":"Viapublica05"},
+{"legajo":"155922","nombreCompleto":"TRILLO, Ramón Horacio","usuario":"rtrillo","clave":"Redvial00"},
+{"legajo":"310918","nombreCompleto":"VALENZUELA, Cristian Gabriel","usuario":"cvalenzuela","clave":"Viapublica04"},
+{"legajo":"310802","nombreCompleto":"VELAZQUEZ CARDOZO, Sixto Román","usuario":"svelazquez","clave":"Viapublica04"},
+{"legajo":"242934","nombreCompleto":"VICENT, Ariel Rubén","usuario":"avicent","clave":"Redvial00"}
+];
+
+async function cargarSemillaInicial(){
+  if(!currentUser.esAdmin){ showToast('Solo un admin puede cargar la semilla.', false); return; }
+  const snap = await getDocs(collection(db,'personal_agentes'));
+  if(!snap.empty){
+    if(!confirm(`Ya hay ${snap.size} agentes cargados. ¿Cargar igual los ${SEMILLA.length} del Excel? Los legajos repetidos se van a actualizar, no duplicar.`)) return;
+  } else {
+    if(!confirm(`Se van a cargar ${SEMILLA.length} agentes desde el Excel. ¿Confirmás?`)) return;
+  }
+  showToast('Cargando…', true);
+  let ok=0, error=0;
+  for(const a of SEMILLA){
+    try{
+      await setDoc(doc(db,'personal_agentes', a.legajo), {
+        legajo:a.legajo, nombreCompleto:a.nombreCompleto, usuario:a.usuario, clave:a.clave,
+        actualizadoEn: serverTimestamp()
+      }, { merge:true });
+      ok++;
+    }catch(e){ error++; console.error(a.legajo, e); }
+  }
+  showToast(`Carga terminada: ${ok} ok${error?`, ${error} con error`:''}`, error===0);
+}
+
+let toastTimer;
+function showToast(msg, ok){
+  const t = document.getElementById('toast');
+  t.textContent = (ok?'✓ ':'⚠️ ') + msg;
+  t.style.background = ok ? '#1a2236' : '#8a2c22';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 2800);
+}
+
+Object.assign(window, {
+  hacerLogin, hacerSignup, hacerLogout, mostrarSignup, mostrarLogin,
+  renderLista, abrirModalAgente, cerrarModal, guardarAgente, eliminarAgente,
+  cargarSemillaInicial, copiar, showToast
+});
+</script>
+</body>
+</html>

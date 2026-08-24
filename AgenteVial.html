@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Vial</title>
+<style>
+  :root{
+    --bg:#0d2040; --bg2:#122a52; --card:#132b56; --teal:#1abc9c;
+    --teal-d:#149174; --text:#e8eef7; --muted:#8fa3c4; --border:#1e3a6a;
+    --ok:#1abc9c; --warn:#e6b04a; --bad:#e05a5a; --user:#1e3a5f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+    padding:14px;padding-bottom:14px;display:flex;flex-direction:column;height:100vh;}
+  h1{font-size:17px;margin:0 0 2px;color:#fff;display:flex;align-items:center;gap:8px;}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.4;}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .ex-btn{background:var(--bg2);border:1px solid var(--border);color:var(--teal);font-size:11px;
+    padding:6px 10px;border-radius:16px;}
+  .chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px;margin-bottom:10px;}
+  .msg{max-width:88%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.45;}
+  .msg.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:3px;}
+  .msg.agent{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:3px;}
+  .msg.agent .tag{font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;display:block;}
+  .informe-card{background:var(--bg2);border:1px solid var(--teal);border-radius:10px;padding:10px;margin-top:8px;font-size:12.5px;}
+  .informe-card .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--border);gap:10px;}
+  .informe-card .row:last-child{border-bottom:none;}
+  .informe-card .lbl{color:var(--muted);flex-shrink:0;}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .badge.ok{background:rgba(26,188,156,.18);color:var(--ok);}
+  .badge.warn{background:rgba(230,176,74,.18);color:var(--warn);}
+  .inputRow{display:flex;gap:8px;align-items:center;}
+  input[type=text]{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:24px;
+    color:var(--text);padding:12px 16px;font-size:14px;}
+  button{border:none;border-radius:50%;width:46px;height:46px;font-size:18px;flex-shrink:0;}
+  #micBtn{background:var(--bg2);border:1px solid var(--border);color:var(--teal);}
+  #micBtn.listening{background:var(--bad);color:#fff;animation:pulse 1s infinite;}
+  #sendBtn{background:var(--teal);color:#04231c;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+  .status{font-size:10.5px;color:var(--muted);text-align:center;margin-bottom:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .dot.on{background:var(--ok);}
+  .dot.off{background:var(--bad);}
+  .voiceCard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:none;}
+  .voiceCard select{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px;font-size:13px;margin-bottom:8px;}
+  .voiceCard input[type=range]{width:100%;margin-bottom:8px;}
+  .voiceCard label{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;}
+  .presetBtn{border-radius:16px;width:auto;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:11.5px;padding:7px 11px;}
+  details{margin-bottom:10px;}
+  summary{font-size:11px;color:var(--teal);cursor:pointer;}
+</style>
+</head>
+<body>
+
+<h1>🎙️ Agente Vial <span class="dot off" id="dotConexion"></span></h1>
+<div class="sub" id="subEstado">Conectando con Firestore…</div>
+
+<div class="examples">
+  <button class="ex-btn" onclick="preguntar('está hecha la calle rivadavia?')">¿Rivadavia está hecha?</button>
+  <button class="ex-btn" onclick="preguntar('informe de bacheo 2 de hoy')">Informe Bacheo 2 hoy</button>
+  <button class="ex-btn" onclick="preguntar('se hizo belgrano?')">¿Se hizo Belgrano?</button>
+</div>
+
+<div class="status" id="voiceStatus"></div>
+
+<details>
+  <summary>🔊 Ajustar voz</summary>
+  <div class="voiceCard" id="voiceCard" style="display:block;">
+    <select id="voiceSelect"></select>
+    <label>Tono (grave ↔ agudo) <span id="pitchVal">0.65</span></label>
+    <input type="range" id="pitchRange" min="0" max="2" step="0.1" value="0.65">
+    <label>Velocidad <span id="rateVal">0.9</span></label>
+    <input type="range" id="rateRange" min="0.5" max="1.5" step="0.05" value="0.9">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+      <button class="presetBtn" onclick="probarPreset('m',0.55,0.85,this)">♂ Muy grave</button>
+      <button class="presetBtn" onclick="probarPreset('m',0.75,0.9,this)">♂ Grave calmo</button>
+      <button class="presetBtn" onclick="probarPreset('m',1.0,1.0,this)">♂ Neutro</button>
+      <button class="presetBtn" onclick="probarPreset('f',0.85,0.85,this)">♀ Suave</button>
+      <button class="presetBtn" onclick="probarPreset('f',1.0,0.95,this)">♀ Neutra</button>
+      <button class="presetBtn" onclick="probarVoz()">▶ Probar actual</button>
+    </div>
+    <div id="presetActivo" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>
+  </div>
+</details>
+
+<div class="chat" id="chat"></div>
+
+<div class="inputRow">
+  <button id="micBtn" onclick="toggleMic()">🎤</button>
+  <input type="text" id="textInput" placeholder="Escribí o hablá tu consulta..." onkeydown="if(event.key==='Enter')enviarTexto()">
+  <button id="sendBtn" onclick="enviarTexto()">➤</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+  collection, onSnapshot, query, orderBy
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+// ===== FIREBASE (mismo proyecto que PlanificacionVial — lectura pública, sin login) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCiQuc-g5fNFdPUqPO1FC8xMbDyZGwn2u8",
+  authDomain: "ventana-integradora.firebaseapp.com",
+  projectId: "ventana-integradora",
+  storageBucket: "ventana-integradora.firebasestorage.app",
+  messagingSenderId: "263265819564",
+  appId: "1:263265819564:web:e7e7583eb4fefe9bdff809"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
+
+const CUADRILLAS = ["Fresadora","Emulsion","Emulsión","Bacheo 1","Bacheo 2","Bacheo 3","Terminadora","Albañilería","Preparación Suelo"];
+
+let ENTRIES = [];       // planificacion_entries en vivo
+let CALLES_DOCS = [];   // calles_planificadas en vivo (nombre, lat, lng)
+let cargaEntries = false, cargaCalles = false;
+
+const dot = document.getElementById('dotConexion');
+const subEstado = document.getElementById('subEstado');
+function actualizarEstadoConexion(){
+  if(cargaEntries && cargaCalles){
+    dot.className = 'dot on';
+    subEstado.textContent = `Conectado · ${ENTRIES.length} partes, ${CALLES_DOCS.length} calles cargadas`;
+  }
+}
+
+onSnapshot(query(collection(db,'planificacion_entries'), orderBy('fecha')), snap=>{
+  ENTRIES = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  cargaEntries = true;
+  actualizarEstadoConexion();
+}, err=>{
+  subEstado.textContent = '⚠️ No se pudo conectar a Firestore — revisá conexión a internet.';
+  console.error(err);
+});
+
+onSnapshot(collection(db,'calles_planificadas'), snap=>{
+  CALLES_DOCS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  cargaCalles = true;
+  actualizarEstadoConexion();
+}, err=>{ console.error(err); });
+
+// ===== NORMALIZACIÓN Y MATCHER =====
+function normalizar(s){
+  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\bav\.?\b|\bavenida\b/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+  return dp[m][n];
+}
+function similitud(a,b){
+  const na=normalizar(a), nb=normalizar(b);
+  if(!na.length||!nb.length) return 0;
+  const lev=1-(levenshtein(na,nb)/Math.max(na.length,nb.length,1));
+  const ta=new Set(na.split(' ').filter(Boolean)), tb=new Set(nb.split(' ').filter(Boolean));
+  let inter=0; ta.forEach(t=>{if(tb.has(t))inter++;});
+  const tok=(ta.size&&tb.size)?inter/new Set([...ta,...tb]).size:0;
+  return lev*0.65+tok*0.35;
+}
+function mejorMatch(texto, lista){
+  if(!lista.length) return {item:null, score:0};
+  return lista.map(item=>({item, score:similitud(texto,item)})).sort((a,b)=>b.score-a.score)[0];
+}
+
+// ===== CADENA DE REPROGRAMACIONES: colapsar entradas superadas =====
+function idsSuperados(entries){
+  const s = new Set();
+  entries.forEach(e=>{ if(e.reprogramadoDe) s.add(e.reprogramadoDe); });
+  return s;
+}
+function entriesActivas(){
+  const superados = idsSuperados(ENTRIES);
+  return ENTRIES.filter(e=>!superados.has(e.id));
+}
+
+// ===== EXTRACCIÓN DE FECHA =====
+const DIAS = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
+function hoy(){ return new Date(); }
+function extraerFecha(textoNorm){
+  if(/\bhoy\b/.test(textoNorm)) return hoy();
+  if(/\bayer\b/.test(textoNorm)){ const d=hoy(); d.setDate(d.getDate()-1); return d; }
+  for(let i=0;i<DIAS.length;i++){
+    if(textoNorm.includes(DIAS[i])){
+      const d=hoy();
+      let diff=(d.getDay()-i+7)%7; if(diff===0) diff=7;
+      d.setDate(d.getDate()-diff);
+      return d;
+    }
+  }
+  return null;
+}
+function fechaISO(d){ return d.toISOString().slice(0,10); }
+function fechaLegible(iso){
+  if(!iso) return '(sin fecha)';
+  const d = new Date(iso.length===10 ? iso+'T12:00:00' : iso);
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
+}
+
+// ===== EXTRACCIÓN DE CUADRILLA =====
+const ALIAS_NUM = {uno:"1",dos:"2",tres:"3"};
+function extraerCuadrilla(textoNorm){
+  let t = textoNorm;
+  Object.keys(ALIAS_NUM).forEach(k=>{ t=t.replace(new RegExp('\\b'+k+'\\b','g'), ALIAS_NUM[k]); });
+  const match = mejorMatch(t, CUADRILLAS);
+  return match.score>0.4 ? match.item : null;
+}
+
+// ===== EXTRACCIÓN DE CALLE (varias formas de decirlo) =====
+function extraerCalleTexto(textoOriginal){
+  const patrones = [
+    /(?:esta|está)\s+hech[ao]\s+la\s+calle\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+esquina|\s+entre|\?|$)/i,
+    /(?:se\s+hizo|se\s+termino|se\s+terminó|ya\s+se\s+hizo)\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+calle\b/i,
+    /(?:se\s+hizo|se\s+termino|se\s+terminó)\s+(?:la\s+calle\s+)?([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+esquina|\s+entre|\?|$)/i,
+    /calle\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+(esta|está|ya|se|terminad|hech|list)|\s+esquina|\s+entre|\?|$)/i,
+    /^([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+(?:esta|está|ya\s+se|se\s+hizo|se\s+termino|se\s+terminó)/i,
+  ];
+  for(const p of patrones){
+    const m = textoOriginal.match(p);
+    if(m && m[1].trim().length>2){
+      return m[1].trim().replace(/^(la\s+|calle\s+)/i,'').replace(/\s+calle$/i,'').trim();
+    }
+  }
+  return textoOriginal;
+}
+function extraerCruce(textoOriginal){
+  const mEsquina = textoOriginal.match(/esquina\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\?|$)/i);
+  if(mEsquina) return [mEsquina[1].trim()];
+  const mEntre = textoOriginal.match(/entre\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+y\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\?|$)/i);
+  if(mEntre) return [mEntre[1].trim(), mEntre[2].trim()];
+  return [];
+}
+const ORDINALES = {primera:1, primero:1, "1":1, segunda:2, segundo:2, "2":2, tercera:3, tercero:3, "3":3, cuarta:4, cuarto:4, "4":4};
+function extraerOrdinal(textoNorm){
+  for(const k in ORDINALES){ if(new RegExp('\\b'+k+'\\b').test(textoNorm)) return ORDINALES[k]; }
+  return null;
+}
+
+// ===== INTENCIÓN =====
+let pendienteAmbiguedad = null;
+
+function procesarConsulta(textoOriginal){
+  const t = normalizar(textoOriginal);
+  const activas = entriesActivas();
+
+  if(pendienteAmbiguedad){
+    const opciones = pendienteAmbiguedad.opciones;
+    const ordinal = extraerOrdinal(t);
+    if(ordinal && opciones[ordinal-1]){
+      const elegida = opciones[ordinal-1];
+      pendienteAmbiguedad = null;
+      return {tipo:'estado', calle:elegida.calle, score:1, entrada:elegida};
+    }
+    const cruce = extraerCruce(textoOriginal);
+    if(cruce.length){
+      const candidatas = opciones.map(o=>{
+        const s1 = mejorMatch(cruce[0], [o.entre1,o.entre2].filter(Boolean)).score;
+        const s2 = cruce[1] ? mejorMatch(cruce[1], [o.entre1,o.entre2].filter(Boolean)).score : 0;
+        return {entrada:o, score: cruce[1] ? (s1+s2)/2 : s1};
+      }).sort((a,b)=>b.score-a.score);
+      if(candidatas[0].score>0.45){
+        pendienteAmbiguedad = null;
+        return {tipo:'estado', calle:candidatas[0].entrada.calle, score:1, entrada:candidatas[0].entrada};
+      }
+    }
+    pendienteAmbiguedad = null;
+  }
+
+  const esInforme = /\binforme\b/.test(t);
+  const esConsultaEstado = /(hecha|terminad|lista|se hizo|esta echo|esta hecho|anda|se termino)/.test(t) || (!esInforme && /calle/.test(t));
+
+  if(esInforme){
+    const cuadrilla = extraerCuadrilla(t);
+    const fechaObj = extraerFecha(t);
+    const fechaIso = fechaObj ? fechaISO(fechaObj) : null;
+    let candidatos = activas.filter(e => (!cuadrilla || normalizar(e.cuadrilla)===normalizar(cuadrilla)) && (!fechaIso || e.fecha===fechaIso));
+    if(candidatos.length===0) return {tipo:'informe_vacio', cuadrilla, fecha:fechaIso};
+    return {tipo:'informe', entradas:candidatos, cuadrilla, fecha:fechaIso};
+  }
+
+  if(esConsultaEstado){
+    const calleTexto = extraerCalleTexto(textoOriginal);
+    // diccionario = calles_planificadas UNIDO con las calles que ya tienen partes cargados
+    // (si una calle tiene partes pero no está en calles_planificadas, igual tiene que encontrarla)
+    const nombresCalles = [...new Set([
+      ...CALLES_DOCS.map(c=>c.nombre),
+      ...activas.map(e=>e.calle)
+    ].filter(Boolean))];
+    const match = mejorMatch(calleTexto, nombresCalles);
+    if(!match.item || match.score < 0.4) return {tipo:'estado_no_encontrado', consulta:calleTexto};
+
+    const opciones = activas.filter(e=>similitud(e.calle, match.item) > 0.6).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    if(opciones.length===0) return {tipo:'estado_sin_partes', calle:match.item};
+
+    if(opciones.length>1){
+      const cruce = extraerCruce(textoOriginal);
+      if(cruce.length){
+        const candidatas = opciones.map(o=>{
+          const s1 = mejorMatch(cruce[0], [o.entre1,o.entre2].filter(Boolean)).score;
+          const s2 = cruce[1] ? mejorMatch(cruce[1], [o.entre1,o.entre2].filter(Boolean)).score : 0;
+          return {entrada:o, score: cruce[1] ? (s1+s2)/2 : s1};
+        }).sort((a,b)=>b.score-a.score);
+        if(candidatas[0].score>0.45) return {tipo:'estado', calle:candidatas[0].entrada.calle, score:1, entrada:candidatas[0].entrada};
+      }
+      pendienteAmbiguedad = {opciones};
+      return {tipo:'estado_ambiguo', calle:match.item, opciones};
+    }
+    return {tipo:'estado', calle:match.item, score:match.score, entrada:opciones[0]};
+  }
+  return {tipo:'no_entendido'};
+}
+
+// ===== RESPUESTA =====
+function estaTerminado(e){ return e.terminado===true || e.estado==='terminado' || e.estado==='completado'; }
+
+function responder(resultado){
+  switch(resultado.tipo){
+    case 'estado': {
+      const e = resultado.entrada;
+      const tramo = (e.entre1 && e.entre2) ? ` (entre ${e.entre1} y ${e.entre2})` : '';
+      const term = estaTerminado(e);
+      const matchNote = resultado.score<0.85 ? ` <span style="color:var(--muted);font-size:10.5px;">(interpretado como "${resultado.calle}")</span>` : '';
+      const texto = term
+        ? `Sí, ${resultado.calle}${tramo} fue terminada el ${fechaLegible(e.fecha)} por ${e.cuadrilla}.`
+        : `Todavía no. ${resultado.calle}${tramo} está ${e.estado||'en curso'} — última actualización ${fechaLegible(e.fecha)}, a cargo de ${e.cuadrilla}.`;
+      return {texto: texto+matchNote, hablar: texto};
+    }
+    case 'estado_sin_partes':
+      return {texto:`${resultado.calle} está en el listado de calles, pero no tiene ningún parte cargado todavía.`, hablar:`No hay partes cargados para ${resultado.calle}.`};
+    case 'estado_no_encontrado':
+      return {texto:`No encontré ninguna calle parecida a "${resultado.consulta}" en la planificación.`, hablar:`No encontré esa calle.`};
+    case 'estado_ambiguo': {
+      const lista = resultado.opciones.map((o,i)=>
+        `<div class="row"><span class="lbl">${i+1}</span><b>entre ${o.entre1||'?'} y ${o.entre2||'?'}</b></div>`).join('');
+      const texto = `Hay ${resultado.opciones.length} tramos de ${resultado.calle}. Decime el número, o "esquina [calle]":<div class="informe-card">${lista}</div>`;
+      return {texto, hablar:`Hay ${resultado.opciones.length} tramos de ${resultado.calle}. ¿Cuál de los dos, o con qué calle cruza?`};
+    }
+    case 'informe': {
+      const cards = resultado.entradas.map(e=>`
+        <div class="informe-card">
+          <div class="row"><span class="lbl">Cuadrilla</span><b>${e.cuadrilla}</b></div>
+          <div class="row"><span class="lbl">Dirección</span><b>${e.direccion||e.calle}</b></div>
+          <div class="row"><span class="lbl">Fecha</span><b>${fechaLegible(e.fecha)}</b></div>
+          <div class="row"><span class="lbl">Estado</span>${estaTerminado(e)?'<span class="badge ok">Terminado</span>':`<span class="badge warn">${e.estado||'En curso'}</span>`}</div>
+        </div>`).join('');
+      const texto = `Encontré ${resultado.entradas.length} parte(s). Así quedaría el informe:` + cards;
+      const hablar = `Encontré ${resultado.entradas.length} parte${resultado.entradas.length>1?'s':''}. Preparando el informe.`;
+      return {texto, hablar};
+    }
+    case 'informe_vacio':
+      return {texto:`No hay partes cargados${resultado.cuadrilla?` de ${resultado.cuadrilla}`:''}${resultado.fecha?` para el ${fechaLegible(resultado.fecha)}`:''}.`, hablar:`No encontré partes con esos datos.`};
+    default:
+      return {texto:`No entendí bien la consulta. Probá con "¿la calle X está hecha?" o "informe de [cuadrilla] de [día]".`, hablar:`No entendí la consulta.`};
+  }
+}
+
+// ===== CHAT UI =====
+const chatEl = document.getElementById('chat');
+function agregarMsg(texto, tipo, tag){
+  const div = document.createElement('div');
+  div.className = 'msg '+tipo;
+  div.innerHTML = tag ? `<span class="tag">${tag}</span>${texto}` : texto;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+window.preguntar = function(texto){
+  agregarMsg(texto, 'user');
+  if(!cargaEntries || !cargaCalles){
+    agregarMsg('Todavía estoy cargando los datos, esperá un segundo y volvé a preguntar.', 'agent', '🤖 Agente Vial');
+    return;
+  }
+  const resultado = procesarConsulta(texto);
+  const {texto:respuestaHtml, hablar:respuestaHablada} = responder(resultado);
+  agregarMsg(respuestaHtml, 'agent', '🤖 Agente Vial');
+  hablar(respuestaHablada);
+};
+
+window.enviarTexto = function(){
+  const input = document.getElementById('textInput');
+  const val = input.value.trim();
+  if(!val) return;
+  preguntar(val);
+  input.value='';
+};
+
+// ===== VOZ DE SALIDA =====
+function hablar(texto){
+  if(!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(texto);
+  const voces = speechSynthesis.getVoices();
+  const elegida = voces.find(v=>v.voiceURI===vozSeleccionada);
+  if(elegida) u.voice = elegida;
+  u.lang = elegida ? elegida.lang : 'es-AR';
+  u.pitch = parseFloat(document.getElementById('pitchRange').value);
+  u.rate = parseFloat(document.getElementById('rateRange').value);
+  speechSynthesis.speak(u);
+}
+document.getElementById('pitchRange').addEventListener('input', e=>document.getElementById('pitchVal').textContent=e.target.value);
+document.getElementById('rateRange').addEventListener('input', e=>document.getElementById('rateVal').textContent=e.target.value);
+
+let vozSeleccionada = null, vozInicializada = false;
+const NOMBRES_MASC = ['jorge','diego','carlos','male','hombre','man','pablo','miguel','juan','fernando','enrique','andres'];
+const NOMBRES_FEM = ['mujer','female','woman','maria','paulina','monica','mónica','lucia','lucía','sofia','sofía','camila','helena','laura','isabela','valentina','esperanza','paloma'];
+
+function cargarVoces(){
+  if(!('speechSynthesis' in window)) return;
+  const todas = speechSynthesis.getVoices();
+  if(!todas.length) return;
+  const ordenadas = [...todas].sort((a,b)=>{
+    const aEs = a.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    const bEs = b.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    return aEs - bEs;
+  });
+  const sel = document.getElementById('voiceSelect');
+  sel.innerHTML = ordenadas.map(v=>`<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`).join('');
+  if(!vozInicializada){
+    const esp = ordenadas.filter(v=>v.lang.toLowerCase().startsWith('es'));
+    const masc = esp.find(v=>NOMBRES_MASC.some(n=>v.name.toLowerCase().includes(n)));
+    vozSeleccionada = (masc || esp[0] || ordenadas[0])?.voiceURI || null;
+    vozInicializada = true;
+  }
+  sel.value = vozSeleccionada;
+  document.getElementById('voiceCard').style.display = 'block';
+}
+document.getElementById('voiceSelect').addEventListener('change', e=>{ vozSeleccionada = e.target.value; });
+
+window.probarVoz = function(){ hablar('Hola, soy el Agente Vial. Así sonaría con esta voz.'); };
+
+let presetIndexM = 0, presetIndexF = 0;
+function vocesPorGenero(genero){
+  const todas = speechSynthesis.getVoices();
+  const esp = todas.filter(v=>v.lang.toLowerCase().startsWith('es'));
+  const lista = esp.length ? esp : todas;
+  const nombres = genero==='m' ? NOMBRES_MASC : NOMBRES_FEM;
+  const match = lista.filter(v=>nombres.some(n=>v.name.toLowerCase().includes(n)));
+  return match.length ? match : lista;
+}
+window.probarPreset = function(genero, pitch, rate, btnEl){
+  const candidatas = vocesPorGenero(genero);
+  if(!candidatas.length){ document.getElementById('presetActivo').textContent = 'No encontré voces disponibles.'; return; }
+  const idx = genero==='m' ? (presetIndexM++ % candidatas.length) : (presetIndexF++ % candidatas.length);
+  const voz = candidatas[idx];
+  vozSeleccionada = voz.voiceURI;
+  document.getElementById('voiceSelect').value = voz.voiceURI;
+  document.getElementById('pitchRange').value = pitch; document.getElementById('pitchVal').textContent = pitch;
+  document.getElementById('rateRange').value = rate; document.getElementById('rateVal').textContent = rate;
+  document.querySelectorAll('.presetBtn').forEach(b=>b.style.background='var(--bg2)');
+  if(btnEl) btnEl.style.background = 'var(--teal-d)';
+  document.getElementById('presetActivo').textContent = `Sonando: ${voz.name} (${voz.lang}) · tono ${pitch} · vel ${rate}`;
+  hablar('Hola, soy el Agente Vial. Así sonaría con esta configuración.');
+};
+
+if('speechSynthesis' in window){ cargarVoces(); speechSynthesis.onvoiceschanged = cargarVoces; }
+
+// ===== VOZ DE ENTRADA (Web Speech API) =====
+let recognition = null, listening = false;
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+const statusEl = document.getElementById('voiceStatus');
+
+if(SpeechRecognitionAPI){
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = 'es-AR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = e=>{ document.getElementById('textInput').value = e.results[0][0].transcript; enviarTexto(); };
+  recognition.onerror = e=>{ statusEl.textContent = 'Error de micrófono: '+e.error; setListening(false); };
+  recognition.onend = ()=> setListening(false);
+  statusEl.textContent = 'Reconocimiento de voz disponible ✅';
+}else{
+  statusEl.textContent = '⚠️ Este navegador no soporta reconocimiento de voz nativo — usá el texto.';
+}
+function setListening(v){
+  listening = v;
+  document.getElementById('micBtn').classList.toggle('listening', v);
+  if(v) statusEl.textContent = '🎙️ Escuchando...';
+}
+window.toggleMic = function(){
+  if(!recognition){ statusEl.textContent = 'Sin soporte de voz — usá el campo de texto.'; return; }
+  if(listening){ recognition.stop(); return; }
+  setListening(true);
+  recognition.start();
+};
+
+agregarMsg('Hola, soy el Agente Vial. Preguntame por el estado de una calle o pedime un informe de una cuadrilla.', 'agent', '🤖 Agente Vial');
+</script>
+
+</body>
+</html>

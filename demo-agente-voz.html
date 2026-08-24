@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo · Agente Vial (voz)</title>
+<style>
+  :root{
+    --bg:#0d2040; --bg2:#122a52; --card:#132b56; --teal:#1abc9c;
+    --teal-d:#149174; --text:#e8eef7; --muted:#8fa3c4; --border:#1e3a6a;
+    --ok:#1abc9c; --warn:#e6b04a; --bad:#e05a5a; --user:#1e3a5f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+    padding:14px;padding-bottom:14px;display:flex;flex-direction:column;height:100vh;}
+  h1{font-size:17px;margin:0 0 2px;color:#fff;}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.4;}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .ex-btn{background:var(--bg2);border:1px solid var(--border);color:var(--teal);font-size:11px;
+    padding:6px 10px;border-radius:16px;}
+  .chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px;margin-bottom:10px;}
+  .msg{max-width:88%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.45;}
+  .msg.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:3px;}
+  .msg.agent{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:3px;}
+  .msg.agent .tag{font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;display:block;}
+  .informe-card{background:var(--bg2);border:1px solid var(--teal);border-radius:10px;padding:10px;margin-top:8px;font-size:12.5px;}
+  .informe-card .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--border);}
+  .informe-card .row:last-child{border-bottom:none;}
+  .informe-card .lbl{color:var(--muted);}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;}
+  .badge.ok{background:rgba(26,188,156,.18);color:var(--ok);}
+  .badge.warn{background:rgba(230,176,74,.18);color:var(--warn);}
+  .inputRow{display:flex;gap:8px;align-items:center;}
+  input[type=text]{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:24px;
+    color:var(--text);padding:12px 16px;font-size:14px;}
+  button{border:none;border-radius:50%;width:46px;height:46px;font-size:18px;flex-shrink:0;}
+  #micBtn{background:var(--bg2);border:1px solid var(--border);color:var(--teal);}
+  #micBtn.listening{background:var(--bad);color:#fff;animation:pulse 1s infinite;}
+  #sendBtn{background:var(--teal);color:#04231c;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+  .status{font-size:10.5px;color:var(--muted);text-align:center;margin-bottom:6px;}
+</style>
+</head>
+<body>
+
+<h1>🎙️ Demo: Agente Vial</h1>
+<div class="sub">Preguntale por estado de una calle o pedile un informe. Datos de muestra (6 partes ficticios, con una calle repetida a propósito) — funciona 100% con reglas locales, sin costo de IA.</div>
+
+<div class="examples">
+  <button class="ex-btn" onclick="preguntar('¿la calle quindimil está hecha?')">¿Quindimil está hecha?</button>
+  <button class="ex-btn" onclick="preguntar('hacé el informe de bacheo 2 del jueves')">Informe Bacheo 2 jueves</button>
+  <button class="ex-btn" onclick="preguntar('¿genova ya se terminó?')">¿Génova terminó?</button>
+  <button class="ex-btn" onclick="preguntar('informe de fresadora de hoy')">Informe Fresadora hoy</button>
+  <button class="ex-btn" onclick="preguntar('está hecha la calle rivadavia?')">¿Rivadavia? (ambigua)</button>
+  <button class="ex-btn" onclick="preguntar('rivadavia esquina monteagudo')">Rivadavia esq. Monteagudo</button>
+  <button class="ex-btn" onclick="preguntar('se hizo belgrano?')">¿Se hizo Belgrano?</button>
+  <button class="ex-btn" onclick="preguntar('se hizo quindimil calle?')">"Se hizo Quindimil calle?"</button>
+  <button class="ex-btn" onclick="preguntar('la calle rivadavia entre monteagudo y 9 de julio está hecha?')">Rivadavia entre X y Y</button>
+</div>
+
+<div class="status" id="voiceStatus"></div>
+
+<div class="card" id="voiceCard" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:none;">
+  <div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">🔊 Elegir voz</div>
+  <select id="voiceSelect" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px;font-size:13px;margin-bottom:8px;"></select>
+  <label style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;">Tono (grave ↔ agudo) <span id="pitchVal">0.8</span></label>
+  <input type="range" id="pitchRange" min="0" max="2" step="0.1" value="0.8" style="width:100%;margin-bottom:8px;">
+  <label style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;">Velocidad <span id="rateVal">0.95</span></label>
+  <input type="range" id="rateRange" min="0.5" max="1.5" step="0.05" value="0.95" style="width:100%;margin-bottom:8px;">
+  <div class="row" style="display:flex;gap:8px;">
+    <button style="border-radius:8px;width:auto;flex:1;background:var(--teal);color:#04231c;font-size:12.5px;padding:8px;" onclick="probarVoz()">▶ Probar esta voz</button>
+  </div>
+</div>
+
+<div class="chat" id="chat"></div>
+
+<div class="inputRow">
+  <button id="micBtn" onclick="toggleMic()">🎤</button>
+  <input type="text" id="textInput" placeholder="Escribí o hablá tu consulta..." onkeydown="if(event.key==='Enter')enviarTexto()">
+  <button id="sendBtn" onclick="enviarTexto()">➤</button>
+</div>
+
+<script>
+// ===== DATOS DE MUESTRA =====
+const REF_DATE = new Date('2026-08-24T12:00:00'); // "hoy" simulado = lunes 24/8/2026
+
+const ENTRIES = [
+  {cuadrilla:"Bacheo 2", calle:"Quindimil", entre1:"Eva Perón", entre2:"Belgrano", fecha:"2026-08-21", terminado:true, descripcion:"Bacheo profundo, 12 pozos reparados"},
+  {cuadrilla:"Bacheo 1", calle:"Belgrano", entre1:"Quindimil", entre2:"Monteagudo", fecha:"2026-08-20", terminado:true, descripcion:"Bacheo superficial, 6 pozos"},
+  {cuadrilla:"Fresadora", calle:"Av. Génova", entre1:"Rivadavia", entre2:"9 de Julio", fecha:"2026-08-24", terminado:false, descripcion:"Fresado en curso, 40% avance"},
+  {cuadrilla:"Emulsión", calle:"Rivadavia", entre1:"Av. Génova", entre2:"25 de Mayo", fecha:"2026-08-19", terminado:true, descripcion:"Riego de liga previo a carpeta"},
+  {cuadrilla:"Bacheo 3", calle:"Monteagudo", entre1:"Belgrano", entre2:"Almafuerte", fecha:"2026-08-18", terminado:true, descripcion:"Bacheo con fresado previo"},
+  // misma calle en dos tramos distintos, a propósito, para probar la desambiguación
+  {cuadrilla:"Bacheo 1", calle:"Rivadavia", entre1:"Monteagudo", entre2:"9 de Julio", fecha:"2026-08-22", terminado:false, descripcion:"Bacheo en curso, 3 pozos de 8"},
+];
+
+const CUADRILLAS = ["Fresadora","Emulsión","Bacheo 1","Bacheo 2","Bacheo 3","Terminadora","Albañilería","Preparación Suelo"];
+const CALLES = [...new Set(ENTRIES.map(e=>e.calle))];
+
+// ===== NORMALIZACIÓN Y MATCHER (mismo algoritmo de la demo anterior) =====
+function normalizar(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\bav\.?\b|\bavenida\b/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+  return dp[m][n];
+}
+function similitud(a,b){
+  const norm=(s)=>normalizar(s);
+  const na=norm(a), nb=norm(b);
+  const lev=1-(levenshtein(na,nb)/Math.max(na.length,nb.length,1));
+  const ta=new Set(na.split(' ').filter(Boolean)), tb=new Set(nb.split(' ').filter(Boolean));
+  let inter=0; ta.forEach(t=>{if(tb.has(t))inter++;});
+  const tok=(ta.size&&tb.size)?inter/new Set([...ta,...tb]).size:0;
+  return lev*0.65+tok*0.35;
+}
+function mejorMatch(texto, lista){
+  return lista.map(item=>({item, score:similitud(texto,item)})).sort((a,b)=>b.score-a.score)[0];
+}
+
+// ===== EXTRACCIÓN DE FECHA =====
+const DIAS = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
+function extraerFecha(textoNorm){
+  if(/\bhoy\b/.test(textoNorm)) return new Date(REF_DATE);
+  if(/\bayer\b/.test(textoNorm)){ const d=new Date(REF_DATE); d.setDate(d.getDate()-1); return d; }
+  for(let i=0;i<DIAS.length;i++){
+    if(textoNorm.includes(DIAS[i])){
+      const d=new Date(REF_DATE);
+      let diff=(d.getDay()-i+7)%7; if(diff===0) diff=7; // día pasado más cercano (no hoy)
+      d.setDate(d.getDate()-diff);
+      return d;
+    }
+  }
+  return null;
+}
+function fechaISO(d){ return d.toISOString().slice(0,10); }
+function fechaLegible(iso){
+  const d=new Date(iso+'T12:00:00');
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
+}
+
+// ===== EXTRACCIÓN DE CUADRILLA =====
+const ALIAS_NUM = {uno:"1",dos:"2",tres:"3"};
+function extraerCuadrilla(textoNorm){
+  let t = textoNorm;
+  Object.keys(ALIAS_NUM).forEach(k=>{ t=t.replace(new RegExp('\\b'+k+'\\b','g'), ALIAS_NUM[k]); });
+  const match = mejorMatch(t, CUADRILLAS);
+  return match.score>0.4 ? match.item : null;
+}
+
+// ===== EXTRACCIÓN DE CALLE (varias formas de decirlo) =====
+function extraerCalleTexto(textoOriginal){
+  const patrones = [
+    /(?:esta|está)\s+hech[ao]\s+la\s+calle\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+esquina|\s+entre|\?|$)/i,
+    // "se hizo tal calle?" — calle va al final, después del nombre
+    /(?:se\s+hizo|se\s+termino|se\s+terminó|ya\s+se\s+hizo)\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+calle\b/i,
+    /(?:se\s+hizo|se\s+termino|se\s+terminó)\s+(?:la\s+calle\s+)?([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+esquina|\s+entre|\?|$)/i,
+    /calle\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\s+(esta|está|ya|se|terminad|hech|list)|\s+esquina|\s+entre|\?|$)/i,
+    /^([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+(?:esta|está|ya\s+se|se\s+hizo|se\s+termino|se\s+terminó)/i,
+  ];
+  for(const p of patrones){
+    const m = textoOriginal.match(p);
+    if(m && m[1].trim().length>2){
+      // limpieza: sacamos "la"/"calle" sueltos que a veces quedan pegados al nombre
+      return m[1].trim().replace(/^(la\s+|calle\s+)/i,'').replace(/\s+calle$/i,'').trim();
+    }
+  }
+  return textoOriginal;
+}
+
+// ===== EXTRACCIÓN DE ESQUINA / ENTRE CALLES =====
+function extraerCruce(textoOriginal){
+  const mEsquina = textoOriginal.match(/esquina\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\?|$)/i);
+  if(mEsquina) return [mEsquina[1].trim()];
+  const mEntre = textoOriginal.match(/entre\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)\s+y\s+([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9\s]+?)(?:\?|$)/i);
+  if(mEntre) return [mEntre[1].trim(), mEntre[2].trim()];
+  return [];
+}
+
+// ===== EXTRACCIÓN DE NÚMERO/ORDINAL (para elegir entre opciones ambiguas) =====
+const ORDINALES = {primera:1, primero:1, "1":1, segunda:2, segundo:2, "2":2, tercera:3, tercero:3, "3":3, cuarta:4, cuarto:4, "4":4};
+function extraerOrdinal(textoNorm){
+  for(const k in ORDINALES){ if(new RegExp('\\b'+k+'\\b').test(textoNorm)) return ORDINALES[k]; }
+  return null;
+}
+
+// ===== INTENCIÓN =====
+let pendienteAmbiguedad = null; // {opciones: [...entries]} — se llena cuando hay más de una calle con el mismo nombre
+
+function procesarConsulta(textoOriginal){
+  const t = normalizar(textoOriginal);
+
+  // si había una ambigüedad pendiente, primero intentamos resolverla con este mensaje
+  if(pendienteAmbiguedad){
+    const opciones = pendienteAmbiguedad.opciones;
+    const ordinal = extraerOrdinal(t);
+    if(ordinal && opciones[ordinal-1]){
+      const elegida = opciones[ordinal-1];
+      pendienteAmbiguedad = null;
+      return {tipo:'estado', calle:elegida.calle, score:1, entrada:elegida};
+    }
+    const cruce = extraerCruce(textoOriginal);
+    if(cruce.length){
+      const candidatas = opciones.map(o=>{
+        const s1 = mejorMatch(cruce[0], [o.entre1,o.entre2]).score;
+        const s2 = cruce[1] ? mejorMatch(cruce[1], [o.entre1,o.entre2]).score : 0;
+        return {entrada:o, score: cruce[1] ? (s1+s2)/2 : s1};
+      }).sort((a,b)=>b.score-a.score);
+      if(candidatas[0].score>0.45){
+        pendienteAmbiguedad = null;
+        return {tipo:'estado', calle:candidatas[0].entrada.calle, score:1, entrada:candidatas[0].entrada};
+      }
+    }
+    // si no se resolvió, seguimos abajo por si es una consulta nueva y descartamos la pendiente
+    pendienteAmbiguedad = null;
+  }
+
+  const esInforme = /\binforme\b/.test(t);
+  const esConsultaEstado = /(hecha|terminad|lista|se hizo|esta echo|esta hecho|anda|se termino)/.test(t) || (!esInforme && /calle/.test(t));
+
+  if(esInforme){
+    const cuadrilla = extraerCuadrilla(t);
+    const fechaObj = extraerFecha(t);
+    const fechaIso = fechaObj ? fechaISO(fechaObj) : null;
+
+    let candidatos = ENTRIES.filter(e => (!cuadrilla || e.cuadrilla===cuadrilla) && (!fechaIso || e.fecha===fechaIso));
+    if(candidatos.length===0){
+      return {tipo:'informe_vacio', cuadrilla, fecha:fechaIso};
+    }
+    return {tipo:'informe', entradas:candidatos, cuadrilla, fecha:fechaIso};
+  }
+
+  if(esConsultaEstado){
+    const calleTexto = extraerCalleTexto(textoOriginal);
+    const match = mejorMatch(calleTexto, CALLES);
+    if(match.score < 0.45){
+      return {tipo:'estado_no_encontrado', consulta:calleTexto};
+    }
+    const opciones = ENTRIES.filter(e=>e.calle===match.item).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+
+    if(opciones.length>1){
+      // si ya vino el cruce en la misma frase (ej "Rivadavia esquina Monteagudo"), resolvemos directo
+      const cruce = extraerCruce(textoOriginal);
+      if(cruce.length){
+        const candidatas = opciones.map(o=>{
+          const s1 = mejorMatch(cruce[0], [o.entre1,o.entre2]).score;
+          const s2 = cruce[1] ? mejorMatch(cruce[1], [o.entre1,o.entre2]).score : 0;
+          return {entrada:o, score: cruce[1] ? (s1+s2)/2 : s1};
+        }).sort((a,b)=>b.score-a.score);
+        if(candidatas[0].score>0.45){
+          return {tipo:'estado', calle:candidatas[0].entrada.calle, score:1, entrada:candidatas[0].entrada};
+        }
+      }
+      // si no vino cruce, o no matcheó ninguno, pedimos que desambigüe
+      pendienteAmbiguedad = {opciones};
+      return {tipo:'estado_ambiguo', calle:match.item, opciones};
+    }
+
+    return {tipo:'estado', calle:match.item, score:match.score, entrada:opciones[0]};
+  }
+
+  return {tipo:'no_entendido'};
+}
+
+// ===== RESPUESTA =====
+function responder(resultado){
+  switch(resultado.tipo){
+    case 'estado': {
+      const e = resultado.entrada;
+      const tramo = (e.entre1 && e.entre2) ? ` (entre ${e.entre1} y ${e.entre2})` : '';
+      const matchNote = resultado.score<0.85 ? ` <span style="color:var(--muted);font-size:10.5px;">(interpretado como "${resultado.calle}")</span>` : '';
+      const texto = e.terminado
+        ? `Sí, ${resultado.calle}${tramo} fue terminada el ${fechaLegible(e.fecha)} por ${e.cuadrilla}.`
+        : `Todavía no. ${resultado.calle}${tramo} está en curso — última actualización ${fechaLegible(e.fecha)}, a cargo de ${e.cuadrilla} (${e.descripcion}).`;
+      return {texto: texto+matchNote, hablar: texto};
+    }
+    case 'estado_no_encontrado':
+      return {texto:`No encontré ninguna calle parecida a "${resultado.consulta}" en los partes cargados.`, hablar:`No encontré esa calle en los registros.`};
+    case 'estado_ambiguo': {
+      const lista = resultado.opciones.map((o,i)=>
+        `<div class="row"><span class="lbl">${i+1}</span><b>entre ${o.entre1} y ${o.entre2}</b></div>`).join('');
+      const texto = `Hay ${resultado.opciones.length} tramos de ${resultado.calle}. Decime el número, o "esquina [calle]":<div class="informe-card">${lista}</div>`;
+      return {texto, hablar:`Hay ${resultado.opciones.length} tramos de ${resultado.calle}. ¿Cuál de los dos, o con qué calle cruza?`};
+    }
+    case 'informe': {
+      const cards = resultado.entradas.map(e=>`
+        <div class="informe-card">
+          <div class="row"><span class="lbl">Cuadrilla</span><b>${e.cuadrilla}</b></div>
+          <div class="row"><span class="lbl">Calle</span><b>${e.calle}</b></div>
+          <div class="row"><span class="lbl">Fecha</span><b>${fechaLegible(e.fecha)}</b></div>
+          <div class="row"><span class="lbl">Estado</span>${e.terminado?'<span class="badge ok">Terminado</span>':'<span class="badge warn">En curso</span>'}</div>
+          <div class="row"><span class="lbl">Detalle</span><b>${e.descripcion}</b></div>
+        </div>`).join('');
+      const texto = `Encontré ${resultado.entradas.length} parte(s). Así quedaría el informe:` + cards;
+      const hablar = `Encontré ${resultado.entradas.length} parte${resultado.entradas.length>1?'s':''}. Preparando el informe.`;
+      return {texto, hablar};
+    }
+    case 'informe_vacio':
+      return {texto:`No hay partes cargados${resultado.cuadrilla?` de ${resultado.cuadrilla}`:''}${resultado.fecha?` para el ${fechaLegible(resultado.fecha)}`:''}.`, hablar:`No encontré partes con esos datos.`};
+    default:
+      return {texto:`No entendí bien la consulta. Probá con "¿la calle X está hecha?" o "informe de [cuadrilla] de [día]".`, hablar:`No entendí la consulta.`};
+  }
+}
+
+// ===== CHAT UI =====
+const chatEl = document.getElementById('chat');
+function agregarMsg(texto, tipo, tag){
+  const div = document.createElement('div');
+  div.className = 'msg '+tipo;
+  if(tag) div.innerHTML = `<span class="tag">${tag}</span>${texto}`;
+  else div.textContent = texto;
+  if(tag) div.innerHTML = `<span class="tag">${tag}</span>` + texto;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function hablar(texto){
+  if(!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(texto);
+  const voces = speechSynthesis.getVoices();
+  const elegida = voces.find(v=>v.voiceURI===vozSeleccionada);
+  if(elegida) u.voice = elegida;
+  u.lang = elegida ? elegida.lang : 'es-AR';
+  u.pitch = parseFloat(document.getElementById('pitchRange').value);
+  u.rate = parseFloat(document.getElementById('rateRange').value);
+  speechSynthesis.speak(u);
+}
+
+document.getElementById('pitchRange').addEventListener('input', (e)=>{ document.getElementById('pitchVal').textContent = e.target.value; });
+document.getElementById('rateRange').addEventListener('input', (e)=>{ document.getElementById('rateVal').textContent = e.target.value; });
+
+// ===== SELECTOR DE VOZ =====
+let vozSeleccionada = null;
+let vozInicializada = false; // evita resetear la elección del usuario cuando el navegador vuelve a disparar la carga de voces
+function cargarVoces(){
+  if(!('speechSynthesis' in window)) return;
+  const todas = speechSynthesis.getVoices();
+  if(!todas.length) return; // a veces tarda en cargar, onvoiceschanged reintenta
+  // priorizamos español, pero mostramos todas por si el celular no trae voces es-*
+  const ordenadas = [...todas].sort((a,b)=>{
+    const aEs = a.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    const bEs = b.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    return aEs - bEs;
+  });
+  const sel = document.getElementById('voiceSelect');
+  sel.innerHTML = ordenadas.map(v=>`<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`).join('');
+  if(!vozInicializada){
+    vozSeleccionada = ordenadas[0]?.voiceURI || null;
+    vozInicializada = true;
+  }
+  sel.value = vozSeleccionada; // reaplica la elección actual (del usuario o la default) sin pisarla
+  document.getElementById('voiceCard').style.display = todas.length ? 'block' : 'none';
+}
+document.getElementById('voiceSelect').addEventListener('change', (e)=>{ vozSeleccionada = e.target.value; });
+function probarVoz(){
+  hablar('Hola, soy el Agente Vial. Así sonaría con esta voz.');
+}
+if('speechSynthesis' in window){
+  cargarVoces();
+  speechSynthesis.onvoiceschanged = cargarVoces;
+}
+
+function preguntar(texto){
+  agregarMsg(texto, 'user');
+  const resultado = procesarConsulta(texto);
+  const {texto:respuestaHtml, hablar:respuestaHablada} = responder(resultado);
+  agregarMsg(respuestaHtml, 'agent', '🤖 Agente Vial');
+  hablar(respuestaHablada);
+}
+
+function enviarTexto(){
+  const input = document.getElementById('textInput');
+  const val = input.value.trim();
+  if(!val) return;
+  preguntar(val);
+  input.value='';
+}
+
+// ===== VOZ (Web Speech API) =====
+let recognition = null;
+let listening = false;
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+const statusEl = document.getElementById('voiceStatus');
+
+if(SpeechRecognitionAPI){
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = 'es-AR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = (e)=>{
+    const texto = e.results[0][0].transcript;
+    document.getElementById('textInput').value = texto;
+    enviarTexto();
+  };
+  recognition.onerror = (e)=>{ statusEl.textContent = 'Error de micrófono: '+e.error; setListening(false); };
+  recognition.onend = ()=> setListening(false);
+  statusEl.textContent = 'Reconocimiento de voz disponible en este navegador ✅';
+}else{
+  statusEl.textContent = '⚠️ Este navegador no soporta reconocimiento de voz nativo — usá el texto (en iPhone puede fallar; probamos push-to-talk en la versión final)';
+}
+
+function setListening(v){
+  listening = v;
+  const btn = document.getElementById('micBtn');
+  btn.classList.toggle('listening', v);
+  if(v) statusEl.textContent = '🎙️ Escuchando...';
+}
+
+function toggleMic(){
+  if(!recognition){ statusEl.textContent = 'Sin soporte de voz en este navegador — usá el campo de texto.'; return; }
+  if(listening){ recognition.stop(); return; }
+  setListening(true);
+  recognition.start();
+}
+
+// Mensaje de bienvenida
+agregarMsg('Hola, soy el Agente Vial. Preguntame por el estado de una calle o pedime un informe de una cuadrilla.', 'agent', '🤖 Agente Vial');
+</script>
+
+</body>
+</html>

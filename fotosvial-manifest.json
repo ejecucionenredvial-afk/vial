@@ -1,0 +1,24 @@
+{
+  "name": "Fotos Vial",
+  "short_name": "Fotos Vial",
+  "id": "./fotosvial.html",
+  "start_url": "./fotosvial.html",
+  "scope": "./fotosvial",
+  "display": "standalone",
+  "background_color": "#10243a",
+  "theme_color": "#1a3a5c",
+  "icons": [
+    { "src": "fotosvial-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "fotosvial-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "share_target": {
+    "action": "./fotosvial.html?compartido=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [ { "name": "fotos", "accept": ["image/*"] } ]
+    }
+  }
+}

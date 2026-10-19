@@ -358,11 +358,13 @@
           mine.done = true;
           render();
           setReady(true);
+          shareNow(true);
         });
       } else {
         mine.done = true;
         render();
         setReady(true);
+        shareNow(true);
       }
     } catch (e) {
       setStatus('No se pudo procesar la foto. Intentá de nuevo.');
@@ -387,7 +389,9 @@
     setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
 
-  send.addEventListener('click', async function () {
+  /* auto = true: intento silencioso al terminar de preparar la foto. Muchos navegadores lo bloquean
+     (exigen un toque reciente); en ese caso no pasa nada y queda el cartel para tocar. */
+  async function shareNow(auto) {
     if (!img || !shot) return;
     var blob = await getBlob();
     var file = new File([blob], fileName(shot.when), { type: 'image/jpeg' });
@@ -396,12 +400,15 @@
       var data = { files: [file] };
       if (text) data.text = text;
       try { await navigator.share(data); return; }
-      catch (e) { if (e && e.name === 'AbortError') return; }
+      catch (e) { if (auto || (e && e.name === 'AbortError')) return; }
     }
+    if (auto) return;
     saveBlob(blob, file.name);
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
     setStatus('Este navegador no adjunta la foto directo. Quedó guardada: elegila dentro del chat de WhatsApp.');
-  });
+  }
+
+  send.addEventListener('click', function () { shareNow(false); });
 
   $('again').addEventListener('click', function () {
     img = null; shot = null;

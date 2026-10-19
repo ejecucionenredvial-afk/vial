@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a5c">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Registro fotográfico Lanús</title>
+<style>
+  /* Dos pasos: sacar la foto, enviarla. Paleta institucional del Municipio. */
+  :root {
+    --bar: #1a3a5c;
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --ink: #1a2533;
+    --muted: #5a6b7d;
+    --line: #c8d4e0;
+    --btn: #1a3a5c;
+    --btn-ink: #ffffff;
+    --send: #2d6a4f;
+    --send-ink: #ffffff;
+    --focus: #2c5f8a;
+    --chip-ok: #5fd48f;
+    --chip-warn: #f5b84a;
+    --chip-bad: #ff8a80;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1720;
+      --surface: #17212c;
+      --ink: #e6edf3;
+      --muted: #92a3b5;
+      --line: #2a3a4a;
+      --btn: #2c6aa3;
+      --send: #2a7d56;
+      --focus: #7db4e6;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [hidden] { display: none !important; }
+
+  .bar {
+    background: var(--bar); color: #fff;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    padding-bottom: 12px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .bar-in { max-width: 480px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+  .mark {
+    width: 42px; height: 42px; flex: none; border-radius: 10px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3);
+    display: grid; place-items: center;
+  }
+  .mark svg { width: 24px; height: 24px; }
+  .titles { flex: 1 1 170px; min-width: 0; }
+  .eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #a9c8e6; }
+  h1 { margin: 1px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; flex: none;
+    padding: 6px 11px; border-radius: 999px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3);
+    font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; color: #fff;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #b8c7d6; }
+  .chip.ok .dot { background: var(--chip-ok); }
+  .chip.warn .dot { background: var(--chip-warn); }
+  .chip.bad .dot { background: var(--chip-bad); }
+
+  .app {
+    flex: 1; width: 100%; max-width: 480px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 14px; justify-content: center;
+    padding-top: 20px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    width: 100%; border: 0; border-radius: 14px; cursor: pointer;
+    font: inherit; font-weight: 650; text-align: center;
+  }
+  .btn svg { width: 28px; height: 28px; flex: none; }
+  .btn.camera { height: 112px; font-size: 24px; background: var(--btn); color: var(--btn-ink); }
+  .btn.send { height: 70px; font-size: 20px; background: var(--send); color: var(--send-ink); }
+  .btn.send:disabled { opacity: .6; cursor: default; }
+  .btn.second { height: 50px; font-size: 16px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .hint { margin: 0; text-align: center; font-size: 15px; color: var(--muted); }
+  #status { margin: 0; min-height: 1.4em; text-align: center; font-size: 14px; color: var(--muted); }
+
+  #result { display: flex; flex-direction: column; gap: 12px; }
+  canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #000; border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/></svg>
+    </div>
+    <div class="titles">
+      <p class="eyebrow">Municipalidad de Lanús</p>
+      <h1>Registro fotográfico</h1>
+    </div>
+    <span id="gps" class="chip"><span class="dot"></span><span id="gpsTxt">Buscando GPS…</span></span>
+  </div>
+</header>
+
+<main class="app">
+  <label class="btn camera" for="cam" role="button" tabindex="0" id="camBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></svg>
+    Sacar foto
+  </label>
+  <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+  <p class="hint" id="hint">Sale con dirección, coordenadas, fecha y hora.</p>
+
+  <section id="result" hidden aria-label="Foto lista para enviar">
+    <canvas id="canvas" aria-label="Foto con ubicación"></canvas>
+    <button class="btn send" id="send" type="button" disabled>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l-.1 6.5L15 12 3.3 13.9z"/></svg>
+      <span id="sendTxt">Preparando…</span>
+    </button>
+    <button class="btn second" id="again" type="button">Sacar otra foto</button>
+  </section>
+
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var cam = $('cam'), camBtn = $('camBtn'), canvas = $('canvas'), result = $('result');
+  var chip = $('gps'), chipTxt = $('gpsTxt'), statusEl = $('status'), hint = $('hint');
+  var send = $('send'), sendTxt = $('sendTxt');
+  var FONT = '"Segoe UI", Roboto, system-ui, -apple-system, sans-serif';
+  var img = null, imgUrl = null, shot = null, lastPos = null, lastGeo = null;
+
+  function setGps(state, text) { chip.className = 'chip ' + state; chipTxt.textContent = text; }
+  function setStatus(t) { statusEl.textContent = t || ''; }
+  function p2(n) { return String(n).padStart(2, '0'); }
+  function fmt(d) {
+    return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + '  ' +
+           p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+  }
+  function fileName(d) {
+    return 'lanus_' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '_' +
+           p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.jpg';
+  }
+  function setReady(ok) {
+    send.disabled = !ok;
+    sendTxt.textContent = ok ? 'Enviar por WhatsApp' : 'Preparando…';
+  }
+
+  /* ---------- Ubicación automática ---------- */
+  function onPos(p) {
+    lastPos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
+    setGps(p.coords.accuracy <= 30 ? 'ok' : 'warn', 'GPS ±' + Math.round(p.coords.accuracy) + ' m');
+  }
+  function onErr(e) {
+    if (e && e.code === 1) {
+      setGps('bad', 'Ubicación bloqueada');
+      setStatus('Activá el permiso de ubicación del navegador para este sitio y recargá.');
+    } else if (!lastPos) {
+      setGps('warn', 'Buscando GPS…');
+    }
+  }
+  if (!window.isSecureContext) {
+    setGps('bad', 'Sin HTTPS');
+    setStatus('Abrí la página desde una dirección https:// para poder usar la ubicación.');
+  } else if (!navigator.geolocation) {
+    setGps('bad', 'Sin GPS');
+  } else {
+    navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  }
+
+  function getFix() {
+    if (lastPos && Date.now() - lastPos.t < 60000) return Promise.resolve(lastPos);
+    return new Promise(function (resolve) {
+      var fallback = function () {
+        resolve(lastPos && Date.now() - lastPos.t < 600000 ? lastPos : null);
+      };
+      if (!navigator.geolocation) return fallback();
+      navigator.geolocation.getCurrentPosition(
+        function (p) { onPos(p); resolve(lastPos); },
+        fallback,
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+  }
+
+  function dist(a, b) {
+    var R = 6371000, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+    var x = Math.pow(Math.sin(dLat / 2), 2) +
+            Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.pow(Math.sin(dLon / 2), 2);
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  /* Dirección aproximada desde OpenStreetMap. Sin internet, la foto sale con coordenadas. */
+  async function geocode(pos) {
+    if (lastGeo && dist(lastGeo, pos) < 40) return lastGeo.text;
+    var ctl = new AbortController();
+    var to = setTimeout(function () { ctl.abort(); }, 5000);
+    try {
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=es' +
+                '&lat=' + pos.lat + '&lon=' + pos.lon;
+      var r = await fetch(url, { signal: ctl.signal });
+      var j = await r.json();
+      var a = j.address || {};
+      var street = [a.road, a.house_number].filter(Boolean).join(' ');
+      var place = a.suburb || a.neighbourhood || a.city_district || '';
+      var city = a.city || a.town || a.village || a.municipality || '';
+      var text = [street, place, city].filter(Boolean).join(', ');
+      if (text) { lastGeo = { lat: pos.lat, lon: pos.lon, text: text }; return text; }
+    } catch (e) { /* sin red: se omite la dirección */ }
+    finally { clearTimeout(to); }
+    return '';
+  }
+
+  /* ---------- Foto ---------- */
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var u = URL.createObjectURL(file);
+      var i = new Image();
+      i.onload = function () {
+        if (imgUrl) URL.revokeObjectURL(imgUrl);
+        imgUrl = u;
+        resolve(i);
+      };
+      i.onerror = function () { URL.revokeObjectURL(u); reject(new Error('No se pudo abrir la foto')); };
+      i.src = u;
+    });
+  }
+
+  function wrap(ctx, text, maxW) {
+    var words = text.split(/\s+/), out = [], line = '';
+    words.forEach(function (w) {
+      var t = line ? line + ' ' + w : w;
+      if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else { line = t; }
+    });
+    if (line) out.push(line);
+    return out;
+  }
+
+  function render() {
+    if (!img || !shot) return;
+    var nw = img.naturalWidth, nh = img.naturalHeight;
+    var k = Math.min(1, 1600 / Math.max(nw, nh));
+    var w = Math.round(nw * k), h = Math.round(nh * k);
+    canvas.width = w; canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.textBaseline = 'top';
+
+    var fs = Math.max(15, Math.round(Math.min(w, h) * 0.034));
+    var pad = Math.round(fs * 0.75), maxW = w - pad * 2, rows = [];
+
+    function add(text, size, weight, color, gap) {
+      var px = Math.round(fs * size);
+      ctx.font = weight + ' ' + px + 'px ' + FONT;
+      wrap(ctx, text, maxW).forEach(function (t) { rows.push({ t: t, px: px, w: weight, c: color, gap: 0 }); });
+      if (gap && rows.length) rows[rows.length - 1].gap = Math.round(fs * gap);
+    }
+
+    add('MUNICIPALIDAD DE LANÚS', 0.72, 700, '#9cc3e6', 0.25);
+    if (shot.address) add(shot.address, 1.0, 700, '#ffffff', 0.1);
+    add(shot.pos
+      ? shot.pos.lat.toFixed(6) + ', ' + shot.pos.lon.toFixed(6) + '   ±' + Math.round(shot.pos.acc) + ' m'
+      : 'Ubicación no disponible', 0.85, 400, '#d4e3f2', 0);
+    add(fmt(shot.when), 0.85, 400, '#d4e3f2', 0);
+
+    var total = 0;
+    rows.forEach(function (r) { total += Math.round(r.px * 1.3) + r.gap; });
+    var accent = Math.max(4, Math.round(fs * 0.22));
+    var panelH = total + pad * 2 + accent;
+
+    ctx.fillStyle = 'rgba(10,26,44,0.86)';
+    ctx.fillRect(0, h - panelH, w, panelH);
+    ctx.fillStyle = '#4a90d0';
+    ctx.fillRect(0, h - panelH, w, accent);
+
+    var y = h - panelH + accent + pad;
+    rows.forEach(function (r) {
+      ctx.font = r.w + ' ' + r.px + 'px ' + FONT;
+      ctx.fillStyle = r.c;
+      ctx.fillText(r.t, pad, y);
+      y += Math.round(r.px * 1.3) + r.gap;
+    });
+  }
+
+  cam.addEventListener('change', async function () {
+    var f = cam.files && cam.files[0];
+    if (!f) return;
+    setStatus('Procesando foto…');
+    var when = new Date();
+    try {
+      var res = await Promise.all([loadImage(f), getFix()]);
+      img = res[0];
+      var pos = res[1];
+      var mine = { when: when, pos: pos, address: '' };
+      shot = mine;
+      camBtn.hidden = true;
+      hint.hidden = true;
+      result.hidden = false;
+      setReady(false);
+      render();
+      setStatus(pos ? '' : 'No se pudo obtener la ubicación. Probá de nuevo con mejor señal de GPS.');
+      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (pos) {
+        geocode(pos).then(function (t) {
+          if (shot !== mine) return;
+          if (t) { mine.address = t; render(); }
+          setReady(true);
+        });
+      } else {
+        setReady(true);
+      }
+    } catch (e) {
+      setStatus('No se pudo procesar la foto. Intentá de nuevo.');
+    }
+    cam.value = '';
+  });
+
+  camBtn.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cam.click(); }
+  });
+
+  /* ---------- Enviar por WhatsApp (menú de compartir) ---------- */
+  function getBlob() {
+    return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.88); });
+  }
+  function messageText() {
+    var l = [];
+    if (shot.address) l.push(shot.address);
+    if (shot.pos) l.push('📍 https://maps.google.com/?q=' + shot.pos.lat.toFixed(6) + ',' + shot.pos.lon.toFixed(6));
+    l.push(fmt(shot.when).replace('  ', ' '));
+    return l.join('\n');
+  }
+  function saveBlob(blob, name) {
+    var u = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+
+  send.addEventListener('click', async function () {
+    if (!img || !shot) return;
+    var blob = await getBlob();
+    var file = new File([blob], fileName(shot.when), { type: 'image/jpeg' });
+    var text = messageText();
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: text }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    saveBlob(blob, file.name);
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    setStatus('Este navegador no adjunta la foto directo. Quedó guardada: elegila dentro del chat de WhatsApp.');
+  });
+
+  $('again').addEventListener('click', function () {
+    img = null; shot = null;
+    result.hidden = true; camBtn.hidden = false; hint.hidden = false;
+    setStatus('');
+    cam.click();
+  });
+})();
+</script>
+</body>
+</html>

@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>Registro fotográfico Lanús</title>
 <style>
-  /* Dos pasos: sacar la foto, enviarla. Paleta institucional del Municipio. */
+  /* Tres pantallas: cámara en vivo, foto lista para enviar, y respaldo con la cámara del celular */
   :root {
     --bar: #1a3a5c;
     --bg: #f4f6f9;
@@ -49,13 +49,14 @@
     background: var(--bg);
     color: var(--ink);
     font: 16px/1.4 "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
-    min-height: 100dvh;
+    height: 100dvh;
     display: flex; flex-direction: column;
     -webkit-tap-highlight-color: transparent;
   }
   [hidden] { display: none !important; }
 
   .bar {
+    flex: none;
     background: var(--bar); color: #fff;
     padding-top: max(12px, env(safe-area-inset-top, 0px));
     padding-bottom: 12px;
@@ -84,6 +85,31 @@
   .chip.warn .dot { background: var(--chip-warn); }
   .chip.bad .dot { background: var(--chip-bad); }
 
+  /* ---- Cámara en vivo ---- */
+  #camView { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #000; }
+  .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+  .live {
+    position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); top: 12px;
+    background: rgba(10, 26, 44, .78); color: #fff;
+    padding: 9px 12px; border-radius: 10px;
+    font-size: 16px; font-weight: 600; text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .live:empty { display: none; }
+  .shutter-row {
+    flex: none; background: #0b1622; display: flex; justify-content: center;
+    padding-top: 14px; padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  }
+  #shutter {
+    position: relative; width: 84px; height: 84px; padding: 0; cursor: pointer;
+    border-radius: 50%; border: 5px solid #fff; background: transparent;
+  }
+  #shutter::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #fff; }
+  #shutter:active::after { background: #c3cfda; }
+  #shutter:focus-visible { outline: 3px solid #7db4e6; outline-offset: 4px; }
+
+  /* ---- Resultado y respaldo ---- */
   .app {
     flex: 1; width: 100%; max-width: 480px; margin: 0 auto;
     display: flex; flex-direction: column; gap: 14px; justify-content: center;
@@ -92,6 +118,7 @@
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
+  .has-photo .app { justify-content: flex-start; padding-bottom: 200px; }
 
   .btn {
     display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -111,9 +138,11 @@
   #status { margin: 0; min-height: 1.4em; text-align: center; font-size: 14px; color: var(--muted); }
 
   #result { display: flex; flex-direction: column; align-items: center; }
-  .has-photo .app { justify-content: flex-start; padding-bottom: 200px; }
-
-  /* Cartel de envío: fijo abajo, siempre a la vista */
+  canvas {
+    display: block; width: auto; height: auto; max-width: 100%;
+    max-height: max(180px, calc(100dvh - 330px));
+    border-radius: 8px; background: #000; border: 1px solid var(--line);
+  }
   .dock {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
     background: var(--surface); border-top: 1px solid var(--line);
@@ -124,11 +153,6 @@
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
   .dock-in { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-  canvas {
-    display: block; width: auto; height: auto; max-width: 100%;
-    max-height: max(180px, calc(100dvh - 330px));
-    border-radius: 8px; background: #000; border: 1px solid var(--line);
-  }
 </style>
 </head>
 <body>
@@ -146,13 +170,27 @@
   </div>
 </header>
 
-<main class="app">
-  <label class="btn camera" for="cam" role="button" tabindex="0" id="camBtn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></svg>
-    Sacar foto
-  </label>
-  <input id="cam" type="file" accept="image/*" capture="environment" hidden>
-  <p class="hint" id="hint">La dirección sale grabada en la foto.</p>
+<!-- Cámara en vivo: un toque en el botón saca la foto y abre el envío -->
+<section id="camView" aria-label="Cámara">
+  <div class="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="live" id="liveAddr" aria-live="polite"></div>
+  </div>
+  <div class="shutter-row">
+    <button id="shutter" type="button" aria-label="Sacar foto"></button>
+  </div>
+</section>
+
+<main class="app" id="appView" hidden>
+  <!-- Respaldo: cámara del celular si la cámara dentro de la app no se puede abrir -->
+  <div id="fallback" hidden style="display:flex;flex-direction:column;gap:14px">
+    <label class="btn camera" for="cam" role="button" tabindex="0" id="camBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></svg>
+      Sacar foto
+    </label>
+    <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+    <p class="hint" id="hint">La dirección sale grabada en la foto.</p>
+  </div>
 
   <section id="result" hidden aria-label="Foto lista para enviar">
     <canvas id="canvas" aria-label="Foto con ubicación"></canvas>
@@ -173,20 +211,20 @@
 <script>
 (function () {
   if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+
   var $ = function (id) { return document.getElementById(id); };
-  var cam = $('cam'), camBtn = $('camBtn'), canvas = $('canvas'), result = $('result');
-  var chip = $('gps'), chipTxt = $('gpsTxt'), statusEl = $('status'), hint = $('hint');
-  var send = $('send'), sendTxt = $('sendTxt');
+  var video = $('video'), shutter = $('shutter'), liveAddr = $('liveAddr');
+  var camView = $('camView'), appView = $('appView'), fallbackBox = $('fallback'), result = $('result');
+  var cam = $('cam'), camBtn = $('camBtn'), canvas = $('canvas'), send = $('send'), sendTxt = $('sendTxt');
+  var chip = $('gps'), chipTxt = $('gpsTxt'), statusEl = $('status');
   var FONT = '"Segoe UI", Roboto, system-ui, -apple-system, sans-serif';
-  var img = null, imgUrl = null, shot = null, lastPos = null, lastGeo = null;
+
+  var stream = null, view = 'cam', camOk = true, busy = false;
+  var source = null, shot = null, lastPos = null, lastGeo = null, geoBusy = false, geoTry = 0;
 
   function setGps(state, text) { chip.className = 'chip ' + state; chipTxt.textContent = text; }
   function setStatus(t) { statusEl.textContent = t || ''; }
   function p2(n) { return String(n).padStart(2, '0'); }
-  function fmt(d) {
-    return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + '  ' +
-           p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
-  }
   function fileName(d) {
     return 'lanus_' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '_' +
            p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.jpg';
@@ -196,22 +234,71 @@
     sendTxt.textContent = ok ? 'Enviar por WhatsApp' : 'Preparando…';
   }
 
+  /* ---------- Pantallas ---------- */
+  function show(v) {
+    view = v;
+    camView.hidden = v !== 'cam';
+    appView.hidden = v === 'cam';
+    fallbackBox.hidden = v !== 'fallback';
+    result.hidden = v !== 'result';
+    document.body.classList.toggle('has-photo', v === 'result');
+    if (v === 'cam') setStatus('');
+  }
+
+  /* ---------- Cámara dentro de la app ---------- */
+  function stopCam() {
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    video.srcObject = null;
+  }
+  function useFallback(msg) {
+    camOk = false;
+    stopCam();
+    show('fallback');
+    setStatus(msg || '');
+  }
+  async function startCam() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return useFallback('Este navegador no deja abrir la cámara dentro de la app. Usá la cámara del celular.');
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      try { await video.play(); } catch (e) { /* autoplay ya lo maneja el atributo */ }
+      camOk = true;
+      show('cam');
+      updateLive();
+    } catch (e) {
+      useFallback(e && e.name === 'NotAllowedError'
+        ? 'Permití el acceso a la cámara para este sitio, o usá la cámara del celular.'
+        : 'No se pudo abrir la cámara. Usá la cámara del celular.');
+    }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible' || view !== 'cam' || !camOk) return;
+    var alive = stream && stream.getTracks().some(function (t) { return t.readyState === 'live'; });
+    if (!alive) { stopCam(); startCam(); }
+  });
+
   /* ---------- Ubicación automática ---------- */
   function onPos(p) {
     lastPos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
     setGps(p.coords.accuracy <= 30 ? 'ok' : 'warn', 'GPS ±' + Math.round(p.coords.accuracy) + ' m');
+    warmGeo();
+    updateLive();
   }
   function onErr(e) {
     if (e && e.code === 1) {
       setGps('bad', 'Ubicación bloqueada');
-      setStatus('Activá el permiso de ubicación del navegador para este sitio y recargá.');
+      liveAddr.textContent = 'Activá el permiso de ubicación del navegador para este sitio.';
     } else if (!lastPos) {
       setGps('warn', 'Buscando GPS…');
     }
   }
   if (!window.isSecureContext) {
     setGps('bad', 'Sin HTTPS');
-    setStatus('Abrí la página desde una dirección https:// para poder usar la ubicación.');
   } else if (!navigator.geolocation) {
     setGps('bad', 'Sin GPS');
   } else {
@@ -262,21 +349,22 @@
     return '';
   }
 
-  /* ---------- Foto ---------- */
-  function loadImage(file) {
-    return new Promise(function (resolve, reject) {
-      var u = URL.createObjectURL(file);
-      var i = new Image();
-      i.onload = function () {
-        if (imgUrl) URL.revokeObjectURL(imgUrl);
-        imgUrl = u;
-        resolve(i);
-      };
-      i.onerror = function () { URL.revokeObjectURL(u); reject(new Error('No se pudo abrir la foto')); };
-      i.src = u;
-    });
+  /* La dirección se busca de antemano, mientras se ve la cámara, para que al sacar la foto ya esté lista */
+  function warmGeo() {
+    if (!lastPos || geoBusy) return;
+    if (lastGeo && dist(lastGeo, lastPos) < 40) return;
+    if (Date.now() - geoTry < 10000) return;
+    geoBusy = true; geoTry = Date.now();
+    geocode(lastPos).then(function () { geoBusy = false; updateLive(); });
+  }
+  function updateLive() {
+    if (view !== 'cam') return;
+    if (!lastPos) { liveAddr.textContent = 'Buscando ubicación…'; return; }
+    if (lastGeo && dist(lastGeo, lastPos) < 60) liveAddr.textContent = lastGeo.text;
+    else liveAddr.textContent = 'Buscando dirección…';
   }
 
+  /* ---------- Foto sellada ---------- */
   function wrap(ctx, text, maxW) {
     var words = text.split(/\s+/), out = [], line = '';
     words.forEach(function (w) {
@@ -288,13 +376,13 @@
   }
 
   function render() {
-    if (!img || !shot) return;
-    var nw = img.naturalWidth, nh = img.naturalHeight;
+    if (!source || !shot) return;
+    var nw = source.w, nh = source.h;
     var k = Math.min(1, 1600 / Math.max(nw, nh));
     var w = Math.round(nw * k), h = Math.round(nh * k);
     canvas.width = w; canvas.height = h;
     var ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
+    ctx.drawImage(source.el, 0, 0, w, h);
     ctx.textBaseline = 'top';
 
     var fs = Math.max(15, Math.round(Math.min(w, h) * 0.034));
@@ -336,46 +424,54 @@
     });
   }
 
-  cam.addEventListener('change', async function () {
+  /* Arma el sello y, apenas está lista la foto, intenta abrir el menú de compartir */
+  async function begin(src, when) {
+    source = src;
+    var pos = (lastPos && Date.now() - lastPos.t < 600000) ? lastPos : await getFix();
+    var mine = { when: when, pos: pos, address: '', done: false };
+    shot = mine;
+    show('result');
+    setReady(false);
+    render();
+    setStatus(pos ? '' : 'No se pudo obtener la ubicación. Probá de nuevo con mejor señal de GPS.');
+    window.scrollTo(0, 0);
+    var t = pos ? await geocode(pos) : '';
+    if (shot !== mine) return;
+    mine.address = t || '';
+    mine.done = true;
+    render();
+    setReady(true);
+    shareNow(true);
+  }
+
+  /* Foto desde la cámara en vivo */
+  function shoot() {
+    if (busy || !stream || !video.videoWidth) return;
+    busy = true;
+    var when = new Date();
+    var c = document.createElement('canvas');
+    c.width = video.videoWidth; c.height = video.videoHeight;
+    c.getContext('2d').drawImage(video, 0, 0);
+    stopCam();
+    begin({ el: c, w: c.width, h: c.height }, when).then(function () { busy = false; }, function () { busy = false; });
+  }
+  shutter.addEventListener('click', shoot);
+
+  /* Foto desde la cámara del celular (respaldo) */
+  cam.addEventListener('change', function () {
     var f = cam.files && cam.files[0];
     if (!f) return;
     setStatus('Procesando foto…');
     var when = new Date();
-    try {
-      var res = await Promise.all([loadImage(f), getFix()]);
-      img = res[0];
-      var pos = res[1];
-      var mine = { when: when, pos: pos, address: '', done: false };
-      shot = mine;
-      camBtn.hidden = true;
-      hint.hidden = true;
-      result.hidden = false;
-      setReady(false);
-      render();
-      setStatus(pos ? '' : 'No se pudo obtener la ubicación. Probá de nuevo con mejor señal de GPS.');
-      document.body.classList.add('has-photo');
-      window.scrollTo(0, 0);
-      if (pos) {
-        geocode(pos).then(function (t) {
-          if (shot !== mine) return;
-          mine.address = t || '';
-          mine.done = true;
-          render();
-          setReady(true);
-          shareNow(true);
-        });
-      } else {
-        mine.done = true;
-        render();
-        setReady(true);
-        shareNow(true);
-      }
-    } catch (e) {
-      setStatus('No se pudo procesar la foto. Intentá de nuevo.');
-    }
+    var u = URL.createObjectURL(f);
+    var i = new Image();
+    i.onload = function () {
+      begin({ el: i, w: i.naturalWidth, h: i.naturalHeight }, when);
+    };
+    i.onerror = function () { setStatus('No se pudo procesar la foto. Intentá de nuevo.'); };
+    i.src = u;
     cam.value = '';
   });
-
   camBtn.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cam.click(); }
   });
@@ -393,17 +489,16 @@
     setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
 
-  /* auto = true: intento silencioso al terminar de preparar la foto. Muchos navegadores lo bloquean
-     (exigen un toque reciente); en ese caso no pasa nada y queda el cartel para tocar. */
+  /* auto = true: intento al terminar de preparar la foto. Si el navegador lo bloquea, queda el cartel. */
   async function shareNow(auto) {
-    if (!img || !shot) return;
+    if (!source || !shot) return;
     var blob = await getBlob();
     var file = new File([blob], fileName(shot.when), { type: 'image/jpeg' });
     var text = messageText();
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       var data = { files: [file] };
       if (text) data.text = text;
-      try { await navigator.share(data); return; }
+      try { await navigator.share(data); toCamera(); return; }
       catch (e) { if (auto || (e && e.name === 'AbortError')) return; }
     }
     if (auto) return;
@@ -411,16 +506,21 @@
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
     setStatus('Este navegador no adjunta la foto directo. Quedó guardada: elegila dentro del chat de WhatsApp.');
   }
-
   send.addEventListener('click', function () { shareNow(false); });
 
-  $('again').addEventListener('click', function () {
-    img = null; shot = null;
-    result.hidden = true; camBtn.hidden = false; hint.hidden = false;
-    document.body.classList.remove('has-photo');
+  /* Después de enviar, o con "Sacar otra foto", vuelve la cámara lista para el siguiente disparo */
+  function toCamera() {
+    source = null; shot = null; busy = false;
     setStatus('');
-    cam.click();
+    if (camOk) { show('cam'); startCam(); }
+    else { show('fallback'); }
+  }
+  $('again').addEventListener('click', function () {
+    toCamera();
+    if (!camOk) cam.click();
   });
+
+  startCam();
 })();
 </script>
 </body>

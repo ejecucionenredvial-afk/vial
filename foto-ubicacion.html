@@ -145,6 +145,24 @@
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
   .dock-in { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---- Fotos pendientes (sin internet) ---- */
+  .pendbar {
+    position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: 12px;
+    min-height: 54px; padding: 8px 14px; border: 0; border-radius: 12px; cursor: pointer;
+    background: #0a7c9b; color: #fff; font: inherit; font-size: 17px; font-weight: 700; text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  }
+  .toast {
+    position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: 82px;
+    background: rgba(31, 36, 42, .92); color: #fff; border-left: 4px solid var(--cyan);
+    padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; text-align: center;
+  }
+  #pend { display: flex; flex-direction: column; gap: 12px; }
+  .pend-title { margin: 0; font-size: 20px; font-weight: 700; }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #000; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 </style>
 </head>
 <body>
@@ -161,6 +179,8 @@
   <div class="stage">
     <video id="video" autoplay playsinline muted></video>
     <div class="live" id="liveAddr" aria-live="polite"></div>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <button class="pendbar" id="pendBar" type="button" hidden></button>
   </div>
   <div class="shutter-row">
     <button id="shutter" type="button" aria-label="Sacar foto"></button>
@@ -176,6 +196,7 @@
     </label>
     <input id="cam" type="file" accept="image/*" capture="environment" hidden>
     <p class="hint" id="hint">La dirección sale grabada en la foto.</p>
+    <button class="btn second" id="pendBar2" type="button" hidden></button>
   </div>
 
   <section id="result" hidden aria-label="Foto lista para enviar">
@@ -191,6 +212,23 @@
     </div>
   </section>
 
+  <section id="pend" hidden aria-label="Fotos pendientes">
+    <h2 class="pend-title" id="pendTitle"></h2>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="dock">
+      <div class="dock-in">
+        <button class="btn send" id="pendSend" type="button" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l-.1 6.5L15 12 3.3 13.9z"/></svg>
+          <span id="pendSendTxt">Preparando…</span>
+        </button>
+        <div class="row2">
+          <button class="btn second" id="pendBack" type="button">Volver a la cámara</button>
+          <button class="btn second" id="pendDel" type="button">Borrar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <p id="status" role="status" aria-live="polite"></p>
 </main>
 
@@ -200,7 +238,8 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var video = $('video'), shutter = $('shutter'), liveAddr = $('liveAddr');
-  var camView = $('camView'), appView = $('appView'), fallbackBox = $('fallback'), result = $('result');
+  var camView = $('camView'), appView = $('appView'), fallbackBox = $('fallback'), result = $('result'), pendBox = $('pend');
+  var pendBar = $('pendBar'), pendBar2 = $('pendBar2'), toastEl = $('toast');
   var cam = $('cam'), camBtn = $('camBtn'), canvas = $('canvas'), send = $('send'), sendTxt = $('sendTxt');
   var chip = $('gps'), chipTxt = $('gpsTxt'), statusEl = $('status');
   var FONT = '"Segoe UI", Roboto, system-ui, -apple-system, sans-serif';
@@ -208,7 +247,7 @@
   var logoImg = $('barLogo');
   function fmtDate(d) { return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(); }
   var stream = null, view = 'cam', camOk = true, busy = false;
-  var source = null, shot = null, lastPos = null, lastGeo = null, geoBusy = false, geoTry = 0;
+  var source = null, shot = null, lastPos = null, lastGeo = null, geoBusy = false, geoTry = 0, lastNet = 0;
 
   function setGps(state, text) { chip.className = 'chip ' + state; chipTxt.textContent = text; }
   function setStatus(t) { statusEl.textContent = t || ''; }
@@ -229,7 +268,8 @@
     appView.hidden = v === 'cam';
     fallbackBox.hidden = v !== 'fallback';
     result.hidden = v !== 'result';
-    document.body.classList.toggle('has-photo', v === 'result');
+    pendBox.hidden = v !== 'pend';
+    document.body.classList.toggle('has-photo', v === 'result' || v === 'pend');
     if (v === 'cam') setStatus('');
   }
 
@@ -319,6 +359,9 @@
   /* Dirección aproximada desde OpenStreetMap. Sin internet, la foto sale con coordenadas. */
   async function geocode(pos) {
     if (lastGeo && dist(lastGeo, pos) < 40) return lastGeo.text;
+    var wait = 1100 - (Date.now() - lastNet);
+    if (wait > 0) await new Promise(function (r) { setTimeout(r, wait); });
+    lastNet = Date.now();
     var ctl = new AbortController();
     var to = setTimeout(function () { ctl.abort(); }, 5000);
     try {
@@ -347,6 +390,7 @@
   }
   function updateLive() {
     if (view !== 'cam') return;
+    if (navigator.onLine === false) { liveAddr.textContent = 'Sin internet: la foto se guarda y se envía cuando vuelva la conexión.'; return; }
     if (!lastPos) { liveAddr.textContent = 'Buscando ubicación…'; return; }
     if (lastGeo && dist(lastGeo, lastPos) < 60) liveAddr.textContent = lastGeo.text;
     else liveAddr.textContent = 'Buscando dirección…';
@@ -363,20 +407,19 @@
     return out;
   }
 
-  function render() {
-    if (!source || !shot) return;
-    var nw = source.w, nh = source.h;
+  function drawStamp(cv, src, sh) {
+    var nw = src.w, nh = src.h;
     var k = Math.min(1, 1600 / Math.max(nw, nh));
     var w = Math.round(nw * k), h = Math.round(nh * k);
 
     /* Franja blanca arriba con el logo; la foto queda entera debajo */
     var hasLogo = logoImg && logoImg.complete && logoImg.naturalWidth > 0;
     var bandH = hasLogo ? Math.round(Math.min(w, h) * 0.16) : 0;
-    canvas.width = w; canvas.height = h + bandH;
-    var ctx = canvas.getContext('2d');
+    cv.width = w; cv.height = h + bandH;
+    var ctx = cv.getContext('2d');
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(source.el, 0, bandH, w, h);
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(src.el, 0, bandH, w, h);
     if (hasLogo) {
       var lh = Math.round(bandH * 0.70), lw = Math.round(logoImg.naturalWidth * lh / logoImg.naturalHeight);
       var m = Math.round((bandH - lh) / 2);
@@ -390,7 +433,7 @@
       ctx.fillStyle = '#2b3037';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText(fmtDate(shot.when), w - Math.round(bandH * 0.22), Math.round(bandH * 0.48));
+      ctx.fillText(fmtDate(sh.when), w - Math.round(bandH * 0.22), Math.round(bandH * 0.48));
       ctx.textAlign = 'left';
     }
     ctx.textBaseline = 'top';
@@ -406,12 +449,12 @@
     }
 
     add('MUNICIPALIDAD DE LANÚS', 0.72, 700, '#7fd3e8', 0.25);
-    if (shot.address) {
-      add(shot.address, 1.15, 700, '#ffffff', 0);
-    } else if (shot.done) {
+    if (sh.address) {
+      add(sh.address, 1.15, 700, '#ffffff', 0);
+    } else if (sh.done) {
       /* Sin internet no hay dirección: se graban las coordenadas para que la foto no quede sin ubicación */
-      add(shot.pos
-        ? shot.pos.lat.toFixed(6) + ', ' + shot.pos.lon.toFixed(6)
+      add(sh.pos
+        ? sh.pos.lat.toFixed(6) + ', ' + sh.pos.lon.toFixed(6)
         : 'Ubicación no disponible', 1.0, 700, '#ffffff', 0);
     }
 
@@ -419,7 +462,7 @@
     rows.forEach(function (r) { total += Math.round(r.px * 1.3) + r.gap; });
     var accent = Math.max(4, Math.round(fs * 0.22));
     var panelH = total + pad * 2 + accent;
-    var top = canvas.height - panelH;
+    var top = cv.height - panelH;
 
     ctx.fillStyle = 'rgba(31,36,42,0.88)';
     ctx.fillRect(0, top, w, panelH);
@@ -435,10 +478,190 @@
     });
   }
 
+  function render() {
+    if (!source || !shot) return;
+    drawStamp(canvas, source, shot);
+  }
+
+  /* ---------- Fotos pendientes: se guardan en el celular y se envían cuando vuelve internet ---------- */
+  var qOk = !!window.indexedDB, pendCount = 0;
+  function qdb() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open('fotos-lanus', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('pend', { keyPath: 'id', autoIncrement: true }); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+  }
+  function qtx(mode, fn) {
+    return qdb().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('pend', mode), out = fn(tx.objectStore('pend'));
+        tx.oncomplete = function () { db.close(); res(out && out.result); };
+        tx.onerror = tx.onabort = function () { db.close(); rej(tx.error); };
+      });
+    });
+  }
+  function qAdd(item) { return qtx('readwrite', function (st) { return st.add(item); }); }
+  function qAll() { return qtx('readonly', function (st) { return st.getAll(); }); }
+  function qCount() { return qtx('readonly', function (st) { return st.count(); }); }
+  function qDel(ids) { return qtx('readwrite', function (st) { ids.forEach(function (id) { st.delete(id); }); }); }
+
+  var toastTimer = null;
+  function toast(text) {
+    toastEl.textContent = text; toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 5000);
+  }
+
+  async function refreshPending() {
+    if (!qOk) return;
+    try { pendCount = await qCount(); } catch (e) { qOk = false; pendCount = 0; }
+    var txt = pendCount === 1 ? '1 foto sin enviar · Tocar para enviar' : pendCount + ' fotos sin enviar · Tocar para enviar';
+    pendBar.hidden = pendBar2.hidden = pendCount === 0;
+    pendBar.textContent = pendBar2.textContent = txt;
+  }
+
+  function srcToBlob(src) {
+    return new Promise(function (res) {
+      var k = Math.min(1, 1920 / Math.max(src.w, src.h));
+      var c = document.createElement('canvas');
+      c.width = Math.round(src.w * k); c.height = Math.round(src.h * k);
+      c.getContext('2d').drawImage(src.el, 0, 0, c.width, c.height);
+      c.toBlob(res, 'image/jpeg', 0.92);
+    });
+  }
+
+  /* Guarda la foto sin sello; el sello (dirección y fecha) se arma al enviarla */
+  async function queueShot(src, when, pos, msg) {
+    if (!qOk) return false;
+    try {
+      var blob = await srcToBlob(src);
+      await qAdd({ blob: blob, when: when.getTime(), pos: pos ? { lat: pos.lat, lon: pos.lon, acc: pos.acc } : null });
+    } catch (e) { qOk = false; return false; }
+    source = null; shot = null;
+    await refreshPending();
+    toCamera();
+    toast(msg);
+    return true;
+  }
+
+  function loadBlobImage(blob) {
+    return new Promise(function (res, rej) {
+      var u = URL.createObjectURL(blob), i = new Image();
+      i.onload = function () { URL.revokeObjectURL(u); res(i); };
+      i.onerror = function () { URL.revokeObjectURL(u); rej(new Error('foto')); };
+      i.src = u;
+    });
+  }
+
+  var pendItems = [], pendFiles = [], pendUrls = [], pendRun = 0, delTimer = null;
+  var pendSend = $('pendSend'), pendSendTxt = $('pendSendTxt'), pendDel = $('pendDel');
+  function setPend(enabled, text, retry) {
+    pendSend.disabled = !enabled && !retry;
+    pendSend.dataset.mode = retry ? 'retry' : 'send';
+    pendSendTxt.textContent = text;
+  }
+  function renderThumbs() {
+    pendUrls.forEach(function (u) { URL.revokeObjectURL(u); }); pendUrls = [];
+    var box = $('thumbs'); box.textContent = '';
+    pendItems.forEach(function (it) {
+      var u = URL.createObjectURL(it.blob); pendUrls.push(u);
+      var im = new Image(); im.src = u; im.alt = 'Foto pendiente';
+      box.appendChild(im);
+    });
+    $('pendTitle').textContent = pendItems.length === 1 ? '1 foto pendiente' : pendItems.length + ' fotos pendientes';
+  }
+  async function openPend() {
+    stopCam();
+    show('pend');
+    var run = ++pendRun;
+    try { pendItems = await qAll(); } catch (e) { pendItems = []; }
+    pendItems.sort(function (a, b) { return a.when - b.when; });
+    if (!pendItems.length) { await refreshPending(); toCamera(); return; }
+    renderThumbs();
+    pendDel.textContent = 'Borrar';
+    pendPrepare(run);
+  }
+  /* Con internet: busca la dirección de cada foto, arma el sello y deja todo listo para un solo envío */
+  async function pendPrepare(run) {
+    pendFiles = [];
+    setPend(false, 'Preparando…');
+    for (var i = 0; i < pendItems.length; i++) {
+      if (run !== pendRun) return;
+      setStatus('Preparando ' + (i + 1) + ' de ' + pendItems.length + '…');
+      var it = pendItems[i], addr = '';
+      if (it.pos) {
+        addr = await geocode(it.pos);
+        if (!addr) {
+          setStatus('Todavía no hay internet. Cuando vuelva la conexión, tocá Reintentar.');
+          setPend(false, 'Reintentar', true);
+          return;
+        }
+      }
+      var img = await loadBlobImage(it.blob), d = new Date(it.when), cv = document.createElement('canvas');
+      drawStamp(cv, { el: img, w: img.naturalWidth, h: img.naturalHeight }, { when: d, pos: it.pos, address: addr, done: true });
+      var blob = await new Promise(function (r) { cv.toBlob(r, 'image/jpeg', 0.88); });
+      pendFiles.push(new File([blob], fileName(d).replace('.jpg', '_' + (i + 1) + '.jpg'), { type: 'image/jpeg' }));
+    }
+    if (run !== pendRun) return;
+    setStatus('');
+    setPend(true, pendFiles.length === 1 ? 'Enviar 1 foto por WhatsApp' : 'Enviar ' + pendFiles.length + ' fotos por WhatsApp');
+  }
+  pendSend.addEventListener('click', async function () {
+    if (pendSend.dataset.mode === 'retry') { pendPrepare(++pendRun); return; }
+    var files = pendFiles.slice();
+    if (!files.length) return;
+    if (navigator.canShare && navigator.canShare({ files: files })) {
+      try {
+        await navigator.share({ files: files });
+        try { await qDel(pendItems.map(function (i) { return i.id; })); } catch (e) { /* ignorar */ }
+        pendItems = []; pendFiles = [];
+        await refreshPending();
+        toCamera();
+        toast('Fotos enviadas.');
+        return;
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    files.forEach(function (f, i) { setTimeout(function () { saveBlob(f, f.name); }, i * 400); });
+    window.open('https://wa.me/', '_blank');
+    setStatus('Este navegador no adjunta varias fotos juntas. Quedaron guardadas en tu galería: elegilas dentro del chat de WhatsApp.');
+  });
+  $('pendBack').addEventListener('click', function () { pendRun++; refreshPending(); toCamera(); });
+  pendDel.addEventListener('click', async function () {
+    if (pendDel.textContent === 'Borrar') {
+      pendDel.textContent = '¿Seguro? Tocá de nuevo';
+      clearTimeout(delTimer);
+      delTimer = setTimeout(function () { pendDel.textContent = 'Borrar'; }, 4000);
+      return;
+    }
+    pendRun++;
+    try { await qDel(pendItems.map(function (i) { return i.id; })); } catch (e) { /* ignorar */ }
+    pendItems = [];
+    await refreshPending();
+    toCamera();
+  });
+  pendBar.addEventListener('click', openPend);
+  pendBar2.addEventListener('click', openPend);
+
+  window.addEventListener('online', function () {
+    geoTry = 0;
+    refreshPending().then(function () {
+      if (pendCount > 0 && view === 'cam') toast('Volvió internet: tenés ' + pendCount + (pendCount === 1 ? ' foto' : ' fotos') + ' para enviar.');
+    });
+    updateLive(); warmGeo();
+  });
+  window.addEventListener('offline', updateLive);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refreshPending(); });
+
   /* Arma el sello y, apenas está lista la foto, intenta abrir el menú de compartir */
   async function begin(src, when) {
     source = src;
     var pos = (lastPos && Date.now() - lastPos.t < 600000) ? lastPos : await getFix();
+    var cached = pos && lastGeo && dist(lastGeo, pos) < 40;
+    /* Sin internet y sin dirección a mano: se guarda y se envía después */
+    if (!cached && navigator.onLine === false &&
+        await queueShot(src, when, pos, 'Sin internet: foto guardada. Se envía cuando vuelva la conexión.')) return;
     var mine = { when: when, pos: pos, address: '', done: false };
     shot = mine;
     show('result');
@@ -448,6 +671,8 @@
     window.scrollTo(0, 0);
     var t = pos ? await geocode(pos) : '';
     if (shot !== mine) return;
+    /* Hay ubicación pero no se pudo obtener la dirección (mala señal): también se guarda para después */
+    if (!t && pos && await queueShot(src, when, pos, 'No se pudo obtener la dirección: foto guardada para enviar después.')) return;
     mine.address = t || '';
     mine.done = true;
     render();
@@ -532,6 +757,7 @@
   });
 
   if (logoImg && !logoImg.complete) logoImg.addEventListener('load', render);
+  refreshPending();
   startCam();
 })();
 </script>

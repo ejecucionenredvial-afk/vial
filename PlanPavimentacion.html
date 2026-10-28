@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plan de Pavimentación</title>
+<style>
+:root{--bg:#f1f4f8;--card:#fff;--line:#d9e0e9;--txt:#1b2a3b;--mut:#667789;--navy:#12365f;--acc:#1f6fb5;--soft:#e8f0f9;--ok:#1b8a4b;--okb:#e5f5ec;--par:#b86e00;--parb:#fff3dc;--no:#c62828;--nob:#fdeaea}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;padding-bottom:70px}
+header{background:#fff;border-top:5px solid var(--navy);border-bottom:1px solid var(--line);padding:14px}
+.hwrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{height:54px;min-width:54px;display:flex;align-items:center}
+.logo img{height:54px;width:auto;display:block}
+.logo .ph{display:none;height:54px;padding:0 12px;align-items:center;justify-content:center;border:1px dashed #9fb0c3;border-radius:8px;color:#8a9bb0;font-size:11px;font-weight:700;letter-spacing:.5px;text-align:center}
+.sep{width:1px;height:42px;background:var(--line)}
+.inst{font-size:12px;color:var(--mut);line-height:1.3;flex:1;min-width:150px}
+.inst b{color:var(--navy);display:block;font-size:14px}
+.badge-modo{font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:var(--soft);color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
+.badge-modo.ed{background:var(--navy);color:#fff}
+.title{margin-top:14px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+h1{font-size:21px;color:var(--navy);letter-spacing:.6px}
+.sub{color:var(--acc);font-weight:600;font-size:15px}
+.org{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;text-align:right}
+.upd{font-size:12px;color:var(--mut);margin-top:2px}
+main{max-width:1100px;margin:0 auto;padding:14px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.btn{background:var(--navy);color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer}
+.btn:active{opacity:.85}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.btn.dng{background:#fff;color:var(--no);border:1px solid var(--no)}
+.btn.nav{padding:10px 14px}
+.btn[disabled]{opacity:.35;cursor:default}
+select{padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--txt);font-size:14px;flex:1;min-width:150px}
+.sync{font-size:12px;color:var(--mut);margin-left:auto}
+.sync.ok{color:var(--ok)}.sync.er{color:var(--no)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+@media(min-width:700px){.stats{grid-template-columns:repeat(5,1fr)}}
+.st{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;border-top:3px solid var(--navy)}
+.st small{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.st b{display:block;font-size:24px;color:var(--navy)}
+.st.ok{border-top-color:var(--ok)}.st.ok b{color:var(--ok)}
+.st.par{border-top-color:var(--par)}.st.par b{color:var(--par)}
+.st.no{border-top-color:var(--no)}.st.no b{color:var(--no)}
+.st.pe{border-top-color:#9aa8b8}
+.bar{height:10px;background:#dfe6ee;border-radius:6px;overflow:hidden;margin-bottom:6px;display:flex}
+.bar i{display:block;height:100%;transition:width .3s}
+.pct{color:var(--mut);font-size:13px;margin-bottom:12px}.pct b{color:var(--navy)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.chip{background:#fff;border:1px solid var(--line);color:var(--mut);padding:7px 13px;border-radius:20px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+h2{margin:22px 0 0;font-size:15px;color:#fff;background:var(--navy);padding:10px 14px;border-radius:8px 8px 0 0;text-transform:uppercase;letter-spacing:1px}
+.zona{background:var(--card);border:1px solid var(--line);border-top:0}
+h3{font-size:13px;color:var(--navy);background:var(--soft);display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.5px}
+h3 span{color:var(--mut);font-weight:500;font-size:12px;text-transform:none;letter-spacing:0}
+.hdr{display:none}
+.row{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px;grid-template-columns:28px 1fr;border-left:4px solid transparent}
+.row:last-child{border-bottom:0}
+.row[data-e=si]{border-left-color:var(--ok);background:var(--okb)}
+.row[data-e=par]{border-left-color:var(--par);background:var(--parb)}
+.row[data-e=no]{border-left-color:var(--no);background:var(--nob)}
+.num{color:var(--mut);font-weight:700;padding-top:1px}
+.dir b{display:block;font-size:15px;font-weight:600}
+.tag{display:inline-block;margin-top:4px;background:var(--soft);color:var(--acc);font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;letter-spacing:.3px}
+.det{display:block;color:var(--mut);font-size:12px;margin-top:3px}
+.est{grid-column:1/-1;display:flex;border:1px solid #b9c5d3;border-radius:8px;overflow:hidden;background:#fff}
+.est button{flex:1;padding:9px 4px;border:0;border-right:1px solid #b9c5d3;background:#fff;color:var(--mut);font-weight:600;font-size:13px;cursor:pointer}
+.est button:last-child{border-right:0}
+.est button.on[data-v=si]{background:var(--ok);color:#fff}
+.est button.on[data-v=par]{background:var(--par);color:#fff}
+.est button.on[data-v=no]{background:var(--no);color:#fff}
+.est.ro{border:0;background:transparent}
+.pill{display:inline-block;padding:4px 12px;border-radius:14px;font-size:13px;font-weight:700;background:#eef1f5;color:var(--mut)}
+.pill.si{background:var(--ok);color:#fff}.pill.par{background:var(--par);color:#fff}.pill.no{background:var(--no);color:#fff}
+.obs{grid-column:1/-1}
+.obs .t{font-size:14px;white-space:pre-wrap;word-break:break-word}
+.obs .t.vacio{color:#aab6c4}
+textarea.o{width:100%;background:#fff;color:var(--txt);border:1px solid #b9c5d3;border-radius:8px;padding:8px;font:inherit;font-size:14px;resize:vertical;min-height:38px}
+textarea:focus,select:focus,input:focus{outline:2px solid var(--acc);border-color:var(--acc)}
+@media(min-width:800px){
+ .hdr{display:grid;grid-template-columns:28px 1fr 210px 1.1fr;gap:12px;padding:7px 14px;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--line);background:#fafbfd}
+ .row{grid-template-columns:28px 1fr 210px 1.1fr;gap:12px;align-items:start}
+ .est,.obs{grid-column:auto}
+}
+.empty{color:var(--mut);text-align:center;padding:28px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.foot{margin-top:24px;font-size:12px;color:var(--mut);text-align:center}
+.foot a{color:var(--acc);font-weight:600}
+.firmas{display:none}
+.modal{position:fixed;inset:0;background:rgba(18,54,95,.5);display:none;align-items:center;justify-content:center;padding:14px;z-index:10}
+.modal.on{display:flex}
+.mbox{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:620px;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.mbox h4{color:var(--navy);font-size:17px;margin-bottom:4px}
+.mbox p{color:var(--mut);font-size:13px;margin-bottom:10px}
+.mbox label{display:block;font-size:12px;font-weight:600;color:#445;margin:10px 0 3px}
+.mbox input[type=text],.mbox input[type=password]{width:100%;padding:10px;border:1px solid #b9c5d3;border-radius:8px;font-size:14px}
+#txt{width:100%;height:240px;border:1px solid #b9c5d3;border-radius:8px;padding:10px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.msg{font-size:13px;margin:8px 0;min-height:18px}.msg.er{color:var(--no)}.msg.ok{color:var(--ok)}
+.macts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:50;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+@media print{
+ @page{margin:12mm}
+ body{background:#fff;font-size:11px;padding:0}
+ header{border-top:3px solid #000;border-bottom:1px solid #000}
+ .toolbar,.filters,.stats,.bar,.modal,.foot,.badge-modo,.toast{display:none!important}
+ h2{background:#e5e5e5;color:#000;border-radius:0;border:1px solid #888}
+ .zona{border:1px solid #888;border-top:0}
+ h3{background:#f4f4f4;color:#000}
+ .row{break-inside:avoid;grid-template-columns:24px 1fr 120px 1fr;padding:6px 8px;background:#fff!important;border-left-width:1px;border-left-color:#ccc!important}
+ .hdr{display:grid;grid-template-columns:24px 1fr 120px 1fr;gap:12px;color:#000;background:#fff}
+ .est{grid-column:auto;border:0}.obs{grid-column:auto}
+ .est button:not(.on){display:none}
+ .est button.on,.pill{background:#fff!important;color:#000!important;border:1px solid #000;border-radius:6px}
+ .tag{background:#eee;color:#000}
+ textarea.o{border:1px solid #aaa;resize:none;background:#fff}
+ .firmas{display:flex;gap:40px;margin-top:50px}
+ .firmas div{flex:1;border-top:1px solid #000;text-align:center;padding-top:4px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+ <div class="top">
+  <div class="logo"><img src="logo-lanus.png" alt="Municipalidad de Lanús" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="ph">LOGO<br>LANÚS</span></div>
+  <div class="sep"></div>
+  <div class="logo"><img src="logo-vial.png" alt="Ejecución en Red Vial" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="ph">LOGO<br>RED VIAL</span></div>
+  <div class="inst"><b>Municipalidad de Lanús</b>Dirección de Ejecución en Red Vial</div>
+  <span class="badge-modo" id="modo">Solo lectura</span>
+ </div>
+ <div class="title">
+  <div><h1>PLAN DE PAVIMENTACIÓN</h1><div class="sub" id="semana">Cargando…</div><div class="upd" id="upd"></div></div>
+  <div class="org" id="origen"></div>
+ </div>
+</div></header>
+<main>
+ <div class="toolbar">
+  <button class="btn sec nav" id="bPrev" onclick="nav(-1)" title="Semana anterior">◀</button>
+  <select id="sel" onchange="irA(this.value)" aria-label="Semanas"></select>
+  <button class="btn sec nav" id="bNext" onclick="nav(1)" title="Semana siguiente">▶</button>
+  <span class="sync" id="sync">Conectando…</span>
+ </div>
+ <div class="toolbar" id="tbEdit" style="display:none">
+  <button class="btn" onclick="abrirModal()">Pegar semana</button>
+  <button class="btn sec" onclick="copiarLinkVisual()">Copiar link para ver</button>
+ </div>
+ <div class="stats" id="stats"></div>
+ <div class="bar" id="bar"></div>
+ <div class="pct" id="pct"></div>
+ <div class="filters" id="filters"></div>
+ <div id="lista"></div>
+ <div class="firmas"><div>Responsable de cuadrillas</div><div>Gestor de operaciones viales</div><div>Fecha</div></div>
+ <div class="toolbar" style="margin-top:22px">
+  <button class="btn" onclick="window.print()">Imprimir / PDF</button>
+  <button class="btn sec" id="bLimpiar" style="display:none" onclick="limpiar()">Limpiar estados</button>
+  <button class="btn dng" id="bBorrar" style="display:none" onclick="borrarSemana()">Eliminar semana</button>
+ </div>
+ <div class="foot" id="foot"></div>
+</main>
+
+<div class="modal" id="modal"><div class="mbox">
+ <h4>Pegar semana</h4>
+ <p>Pegá el plan completo (título, secciones, zonas y tareas numeradas). Si la semana ya existe, se reemplaza el listado y se conservan los estados.</p>
+ <textarea id="txt" placeholder="PLAN DE PAVIMENTACIÓN - Planificación semanal 26/10 al 30/10&#10;&#10;*BACHEO*&#10;GERLI ESTE&#10;1. Calle 123 - Bacheo"></textarea>
+ <div class="msg" id="msg"></div>
+ <div class="macts">
+  <button class="btn sec" onclick="pegarPortapapeles()">Pegar del portapapeles</button>
+  <button class="btn" onclick="cargarTexto()">Cargar semana</button>
+  <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+ </div>
+</div></div>
+
+<div class="modal" id="gate"><div class="mbox" style="max-width:380px">
+ <div id="gLogin">
+  <h4>Modo editor</h4>
+  <p>Ingresá con tu cuenta del sistema de Planificación Vial.</p>
+  <label>Email</label><input type="text" id="li-email" autocomplete="username">
+  <label>Contraseña</label><input type="password" id="li-pass" autocomplete="current-password">
+  <div class="msg er" id="gErr"></div>
+  <div class="macts"><button class="btn" onclick="hacerLogin()">Entrar</button><a class="btn sec" href="?" style="text-decoration:none">Solo ver</a></div>
+ </div>
+ <div id="gNoPerm" style="display:none">
+  <h4>Sin permiso</h4>
+  <p>Tu cuenta no tiene habilitado este módulo (PlanPavimentacion.html). Pedile acceso al administrador.</p>
+  <div class="macts"><button class="btn sec" onclick="hacerLogout()">Cerrar sesión</button><a class="btn" href="?" style="text-decoration:none">Ver solo lectura</a></div>
+ </div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+// ===== PARSER =====
+const SMALL=['de','del','y','la','el','en'];
+function tc(s){
+ let r=s.toLowerCase().split(' ').map((w,i)=>(i&&SMALL.includes(w))?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+ return r.replace(/^Albañileria$/,'Albañilería');
+}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function pad(n){return String(n).padStart(2,'0')}
+function parsePlan(txt){
+ const lines=txt.replace(/\r/g,'').split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+ if(!lines.length)throw new Error('El texto está vacío.');
+ const first=lines.shift();
+ const ix=first.indexOf(' - ');
+ const titulo=(ix>-1?first.slice(ix+3):first).replace(/\*/g,'').trim();
+ const dm=first.match(/(\d{1,2})\/(\d{1,2})\s*al\s*(\d{1,2})\/(\d{1,2})/);
+ const clave=dm?new Date().getFullYear()+'-'+pad(dm[2])+'-'+pad(dm[1]):'sem-'+Date.now();
+ let origen='',sec=null,zona=null;const secs=[];
+ for(const l of lines){
+  let m;
+  if((m=l.match(/^\d+\s*[.)]\s*(.+)$/))){
+   if(!sec){sec={n:'General',zonas:[]};secs.push(sec)}
+   if(!zona){zona={n:'General',items:[]};sec.zonas.push(zona)}
+   const body=m[1].trim(),sm=body.match(/\s*-\s+/),d=sm?sm.index:-1;
+   let addr=(d>-1?body.slice(0,d):body).trim().replace(/[.\s]+$/,'');
+   let rest=(d>-1?body.slice(d+sm[0].length):'').trim().replace(/[.\s]+$/,'');
+   let det='';
+   const pm=rest.match(/^(.*?)\s*\((.*)\)$/);
+   if(pm){rest=pm[1].trim();det=cap(pm[2].trim())}
+   const bm=rest.match(/^(Bacheo|TJ)\s+(.+)$/i);
+   if(bm){rest=bm[1];det=cap(bm[2].trim())+(det?' · '+det:'')}
+   zona.items.push({d:addr,t:rest?cap(rest):'Sin especificar',x:det});
+  }else if(/^\*+.+\*+$/.test(l)){
+   sec={n:tc(l.replace(/\*/g,'').trim()),zonas:[]};secs.push(sec);zona=null;
+  }else if(!sec){
+   origen=origen||l.replace(/\*/g,'').trim();
+  }else{
+   zona={n:tc(l.replace(/\*/g,'').trim()),items:[]};sec.zonas.push(zona);
+  }
+ }
+ const secsOk=secs.map(s=>({n:s.n,zonas:s.zonas.filter(z=>z.items.length)})).filter(s=>s.zonas.length);
+ const total=secsOk.reduce((a,s)=>a+s.zonas.reduce((b,z)=>b+z.items.length,0),0);
+ if(!total)throw new Error('No encontré tareas numeradas (ej: "1. Calle 123 - Bacheo").');
+ return {clave,titulo,origen,secciones:secsOk,total};
+}
+// ===== FIN PARSER =====
+
+const SAMPLE=`PLAN DE PAVIMENTACIÓN - Planificación semanal 19/10 al 23/10
+
+CORRALÓN
+
+*BACHEO*
+
+GERLI ESTE
+
+1. Bouchard 2034 - Bacheo.
+2. Bouchard 1953 - Bacheo.
+3. Guidi 619 - Bacheo
+4. Blanco Encalada y Guidi - Bacheo
+5. Bolaños y Ferre - Bacheo
+6. Bolaños 1982 - Bacheo (ventana de servicio hundida)
+7. Bouchard 1830 entre Gaebeler y Magan- Bacheo
+8. Guidi 805 - Bacheo al rededor de tapa de desagüe.
+9. Bolaños y Oncativo - Bacheo.
+10. Bolaños 1542 - Bacheo.
+11. Salta 618 entre Bolaños y Bouchard - Bacheo.
+
+V. DIAMANTE
+
+1. Manuel Maza entre Yatay y Osorio - Bacheo
+2. Manuela Pedraza entre Osorio y Murguiondo - Bacheo
+3. Moreno entre Murguiondo y Yatay - Bacheo
+4. Oliden entre Talcahuano y Av. Rivadavia - Bacheo
+5. Oliden y Emilio Castro - Bacheo
+6. Ucrania entre Moreno y Emilio Castro - Bacheo
+7. Balbín entre Talcahuano y Manuela Pedraza - Media cuadra
+8. Balbín entre Manuel Maza y Emilio Castro - Bacheo
+9. Balbín entre Emilio Castro y Moreno - Bacheo
+10. Boquerón y Emilio Castro - Cruce
+11. Boquerón y Manuela Pedraza - Cruce
+12. Boquerón entre Manuela Pedraza y Talcahuano - Bacheo
+13. Warnes entre Oliden y Ucrania - Bacheo
+14. Warnes entre Balbín y Ucrania - Bacheo
+15. Warnes entre Murguiondo y Molinedo - Bacheo
+16. Manuela Pedraza y Balbín - Bacheo
+17. Manuela Pedraza entre Oliden y Ucrania - Bacheo
+18. Manuela Pedraza entre Oliden y Av. Rivadavia - Bacheo
+19. Manuela Pedraza entre Chubut y Murature - Bacheo
+20. Fco. García Romero entre Pilcomayo y Deán Funes - Bacheo
+21. Chubut entre Manuel Castro y Molinedo - Bacheo
+22. Chubut entre Manuel Maza y Warnes - Bacheo
+23. Chubut entre Viamonte y Manuela Pedraza - Bacheo
+
+*TOMA DE JUNTAS*
+
+ Gerli Este
+
+1. Bouchard entre Madariaga y Guidi - TJ
+2. Bouchard entre Ferre y Guidi - TJ
+3. Guidi entre Migueletes y Bouchard - TJ.
+
+*ALBAÑILERIA*
+
+Gerli Este
+
+1. Gascón y Salta - Reparacion de cordon y rampa.`;
+
+// ===== ESTADO =====
+const params=new URLSearchParams(location.search);
+const DEMO=params.has('demo');
+const WANT_EDIT=params.get('modo')==='editar';
+const COL='plan_pavimentacion', MODULO='PlanPavimentacion.html';
+let WEEKS={},KEY='',EDIT=false,USER=null,FILTRO='all',PEND={},TIMERS={},api=null,auth=null,db=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300)}
+function setSync(t,c){const e=$('sync');e.textContent=t;e.className='sync '+(c||'')}
+const keys=()=>Object.keys(WEEKS).sort();
+const cur=()=>WEEKS[KEY];
+function getD(id){const w=cur();const d=(w&&w.est&&w.est[id])||{e:'',o:''};const pk=KEY+'|'+id;return {e:d.e||'',o:PEND[pk]!==undefined?PEND[pk]:(d.o||'')}}
+function ids(){const r=[],w=cur();if(!w)return r;w.secciones.forEach((s,i)=>s.zonas.forEach((z,j)=>z.items.forEach((_,k)=>r.push('i'+i+'_'+j+'_'+k))));return r}
+function pasa(e){return FILTRO==='all'||(FILTRO==='pend'?!e:e===FILTRO)}
+const ETQ={si:'Realizada',par:'Parcial',no:'No realizada','':'Pendiente'};
+
+// ===== RENDER =====
+function render(){
+ const act=document.activeElement;
+ let foco=null;
+ if(act&&act.tagName==='TEXTAREA'&&act.dataset.id){foco={id:act.dataset.id,s:act.selectionStart,e:act.selectionEnd}}
+ $('modo').textContent=EDIT?'Modo editor':'Solo lectura';
+ $('modo').className='badge-modo'+(EDIT?' ed':'');
+ $('tbEdit').style.display=EDIT?'flex':'none';
+ $('bLimpiar').style.display=EDIT&&cur()?'':'none';
+ $('bBorrar').style.display=EDIT&&USER&&USER.rol==='admin'&&cur()?'':'none';
+ const base=location.pathname.split('/').pop()||'';
+ $('foot').innerHTML=EDIT?'<a href="?">Ver como solo lectura</a>':'<a href="?modo=editar">Entrar como editor</a>';
+ const ks=keys(),w=cur();
+ $('sel').innerHTML=ks.slice().reverse().map(k=>'<option value="'+esc(k)+'"'+(k===KEY?' selected':'')+'>'+esc(WEEKS[k].titulo)+'</option>').join('');
+ const ix=ks.indexOf(KEY);
+ $('bPrev').disabled=!(ix>0);$('bNext').disabled=!(ix>-1&&ix<ks.length-1);
+ if(!w){
+  $('semana').textContent=ks.length?'Elegí una semana':'Todavía no hay semanas cargadas';
+  $('upd').textContent='';$('origen').textContent='';
+  $('stats').innerHTML='';$('bar').innerHTML='';$('pct').innerHTML='';$('filters').innerHTML='';
+  $('lista').innerHTML='<div class="empty">'+(EDIT?'Tocá "Pegar semana" para cargar el primer plan.':'Todavía no se cargó ningún plan.')+'</div>';
+  return;
+ }
+ $('semana').textContent=w.titulo;
+ $('origen').textContent=w.origen?'Origen: '+w.origen:'';
+ let u='';
+ if(w.actualizado&&w.actualizado.toDate){u='Última actualización: '+w.actualizado.toDate().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(w.actualizadoPor?' · '+w.actualizadoPor:'')}
+ $('upd').textContent=u;
+ let h='';
+ w.secciones.forEach((s,i)=>{
+  let body='';
+  s.zonas.forEach((z,j)=>{
+   const idl=z.items.map((_,k)=>'i'+i+'_'+j+'_'+k);
+   const hechos=idl.filter(id=>getD(id).e==='si').length;
+   let rows='';
+   z.items.forEach((it,k)=>{
+    const id=idl[k],d=getD(id);if(!pasa(d.e))return;
+    const est=EDIT
+     ?'<div class="est">'+[['si','Sí'],['par','Parcial'],['no','No']].map(b=>'<button data-v="'+b[0]+'" class="'+(d.e===b[0]?'on':'')+'" onclick="setE(\''+id+'\',\''+b[0]+'\')">'+b[1]+'</button>').join('')+'</div>'
+     :'<div class="est ro"><span class="pill '+d.e+'">'+ETQ[d.e]+'</span></div>';
+    const obs=EDIT
+     ?'<div class="obs"><textarea class="o" data-id="'+id+'" placeholder="Observaciones…" oninput="setO(\''+id+'\',this.value)">'+esc(d.o)+'</textarea></div>'
+     :'<div class="obs"><div class="t'+(d.o?'':' vacio')+'">'+(d.o?esc(d.o):'—')+'</div></div>';
+    rows+='<div class="row" data-e="'+d.e+'"><div class="num">'+(k+1)+'</div>'
+     +'<div class="dir"><b>'+esc(it.d)+'</b><span class="tag">'+esc(it.t)+'</span>'+(it.x?'<span class="det">'+esc(it.x)+'</span>':'')+'</div>'+est+obs+'</div>';
+   });
+   if(rows)body+='<div class="zona"><h3>'+esc(z.n)+'<span>'+hechos+' de '+idl.length+' realizadas</span></h3><div class="hdr"><div>#</div><div>Ubicación / tarea</div><div>¿Se realizó?</div><div>Observaciones</div></div>'+rows+'</div>';
+  });
+  if(body)h+='<h2>'+esc(s.n)+'</h2>'+body;
+ });
+ $('lista').innerHTML=h||'<div class="empty">Sin tareas para este filtro.</div>';
+ stats();
+ if(foco){const t=document.querySelector('textarea[data-id="'+foco.id+'"]');if(t){t.focus();try{t.setSelectionRange(foco.s,foco.e)}catch(e){}}}
+}
+function stats(){
+ const il=ids(),n=il.length||1;
+ const c={si:0,par:0,no:0,pend:0};
+ il.forEach(id=>{c[getD(id).e||'pend']++});
+ $('stats').innerHTML=[['Total',il.length,''],['Realizadas',c.si,'ok'],['Parciales',c.par,'par'],['No realizadas',c.no,'no'],['Pendientes',c.pend,'pe']]
+  .map(x=>'<div class="st '+x[2]+'"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>').join('');
+ $('bar').innerHTML='<i style="width:'+c.si/n*100+'%;background:var(--ok)"></i><i style="width:'+c.par/n*100+'%;background:var(--par)"></i><i style="width:'+c.no/n*100+'%;background:var(--no)"></i>';
+ $('pct').innerHTML='Cumplimiento de la semana: <b>'+Math.round(c.si/n*100)+'%</b> realizado'+(c.par?' · '+Math.round((c.si+c.par*0.5)/n*100)+'% contando parciales como medio':'');
+ const F=[['all','Todas'],['pend','Pendientes'],['si','Realizadas'],['par','Parciales'],['no','No realizadas']];
+ $('filters').innerHTML=F.map(f=>'<button class="chip'+(FILTRO===f[0]?' on':'')+'" onclick="setF(\''+f[0]+'\')">'+f[1]+'</button>').join('');
+}
+
+// ===== NAVEGACIÓN =====
+function irA(k){if(WEEKS[k]){KEY=k;FILTRO='all';render()}}
+function nav(d){const ks=keys(),i=ks.indexOf(KEY)+d;if(i>=0&&i<ks.length)irA(ks[i])}
+function setF(f){FILTRO=f;render()}
+
+// ===== ESCRITURA =====
+function ref(k){return api.doc(db,COL,k)}
+function quien(){return USER?(USER.nombre||USER.email||''):''}
+async function guardarEst(id){
+ const k=KEY,w=WEEKS[k];if(!w||DEMO)return;
+ const d=getD(id);
+ await api.updateDoc(ref(k),{['est.'+id]:{e:d.e,o:d.o},actualizado:api.serverTimestamp(),actualizadoPor:quien()});
+}
+function setE(id,v){
+ if(!EDIT)return;
+ const w=cur();w.est=w.est||{};
+ const d=getD(id);d.e=d.e===v?'':v;w.est[id]=d;
+ render();
+ guardarEst(id).catch(err=>{console.error(err);toast('No se pudo guardar (revisá la conexión)')});
+}
+function setO(id,v){
+ if(!EDIT)return;
+ const k=KEY,pk=k+'|'+id,w=cur();w.est=w.est||{};
+ const d=getD(id);d.o=v;w.est[id]=d;PEND[pk]=v;
+ clearTimeout(TIMERS[pk]);
+ TIMERS[pk]=setTimeout(()=>{
+  const antes=PEND[pk];
+  KEY===k?guardarEst(id).then(()=>{if(PEND[pk]===antes)delete PEND[pk]}).catch(err=>{console.error(err);toast('No se pudo guardar la observación')}):0;
+  stats();
+ },700);
+}
+async function limpiar(){
+ if(!EDIT||!confirm('¿Borrar estados y observaciones de esta semana?'))return;
+ const w=cur();w.est={};Object.keys(PEND).forEach(k=>delete PEND[k]);render();
+ if(DEMO)return;
+ try{await api.updateDoc(ref(KEY),{est:{},actualizado:api.serverTimestamp(),actualizadoPor:quien()});log('Limpió estados',w.titulo)}catch(e){console.error(e);toast('No se pudo limpiar')}
+}
+async function borrarSemana(){
+ if(!EDIT||!USER||USER.rol!=='admin'||!confirm('¿Eliminar por completo esta semana para todo el equipo?'))return;
+ const k=KEY,t=cur().titulo;
+ if(DEMO){delete WEEKS[k];KEY=keys().pop()||'';render();return}
+ try{await api.deleteDoc(ref(k));log('Eliminó semana',t);toast('Semana eliminada')}catch(e){console.error(e);toast('No se pudo eliminar')}
+}
+async function log(accion,detalle){
+ if(DEMO||!USER||!api)return;
+ try{await api.addDoc(api.collection(db,'actividad'),{uid:USER.uid,email:USER.email,nombre:USER.nombre,accion,detalle,timestamp:api.serverTimestamp()})}catch(e){}
+}
+
+// ===== PEGAR SEMANA =====
+function abrirModal(){$('txt').value='';msg('','');$('modal').classList.add('on');setTimeout(()=>$('txt').focus(),50)}
+function cerrarModal(){$('modal').classList.remove('on')}
+function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg '+c}
+function pegarPortapapeles(){
+ if(navigator.clipboard&&navigator.clipboard.readText){
+  navigator.clipboard.readText().then(t=>{$('txt').value=t;msg('Texto pegado. Tocá "Cargar semana".','ok')}).catch(()=>msg('No se pudo leer el portapapeles. Pegá el texto manualmente en el cuadro.','er'));
+ }else msg('Tu navegador no permite leer el portapapeles. Pegá el texto manualmente en el cuadro.','er');
+}
+async function cargarTexto(){
+ if(!EDIT)return;
+ let p;
+ try{p=parsePlan($('txt').value)}catch(e){msg(e.message,'er');return}
+ if(WEEKS[p.clave]&&!confirm('Ya existe "'+p.titulo+'". ¿Reemplazar el listado? Los estados se conservan por posición.'))return;
+ const dat={titulo:p.titulo,origen:p.origen,secciones:p.secciones};
+ try{
+  if(DEMO){WEEKS[p.clave]=Object.assign({est:{}},WEEKS[p.clave]||{},dat)}
+  else{await api.setDoc(ref(p.clave),Object.assign({},dat,{actualizado:api.serverTimestamp(),actualizadoPor:quien()}),{merge:true});log('Pegó semana',p.titulo+' ('+p.total+' tareas)')}
+ }catch(e){console.error(e);msg('No se pudo guardar: '+(e.code||e.message),'er');return}
+ KEY=p.clave;FILTRO='all';cerrarModal();render();toast('Semana cargada: '+p.total+' tareas');
+}
+function copiarLinkVisual(){
+ const u=location.origin+location.pathname;
+ (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copiado')).catch(()=>{prompt('Copiá este link:',u)});
+}
+
+// ===== AUTH (modo editor) =====
+function gate(v){
+ $('gate').classList.toggle('on',v!=='');
+ $('gLogin').style.display=v==='login'?'block':'none';
+ $('gNoPerm').style.display=v==='noperm'?'block':'none';
+}
+async function hacerLogin(){
+ const e=$('li-email').value.trim(),p=$('li-pass').value;$('gErr').textContent='';
+ if(!e||!p){$('gErr').textContent='Completá email y contraseña.';return}
+ try{await api.signInWithEmailAndPassword(auth,e,p)}
+ catch(er){$('gErr').textContent=({'auth/invalid-credential':'Email o contraseña incorrectos.','auth/invalid-email':'Email inválido.','auth/too-many-requests':'Demasiados intentos. Probá en unos minutos.','auth/network-request-failed':'Sin conexión a internet.'})[er.code]||('Error ('+er.code+')')}
+}
+function hacerLogout(){api.signOut(auth)}
+
+// ===== ARRANQUE =====
+async function boot(){
+ if(DEMO){
+  const p=parsePlan(SAMPLE);WEEKS[p.clave]={titulo:p.titulo,origen:p.origen,secciones:p.secciones,est:{}};KEY=p.clave;
+  EDIT=WANT_EDIT;USER={nombre:'Demo',rol:'admin'};setSync('Modo demo: no se guarda','er');render();return;
+ }
+ try{
+  const V='12.15.0',B='https://www.gstatic.com/firebasejs/'+V+'/';
+  const [A,Au,Fs]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);
+  api=Object.assign({},Au,Fs);
+  const app=A.initializeApp({apiKey:"AIzaSyCiQuc-g5fNFdPUqPO1FC8xMbDyZGwn2u8",authDomain:"ventana-integradora.firebaseapp.com",projectId:"ventana-integradora",storageBucket:"ventana-integradora.firebasestorage.app",messagingSenderId:"263265819564",appId:"1:263265819564:web:e7e7583eb4fefe9bdff809"});
+  auth=Au.getAuth(app);db=Fs.getFirestore(app);
+  Fs.onSnapshot(Fs.collection(db,COL),snap=>{
+   const W={};snap.docs.forEach(d=>{W[d.id]=d.data()});WEEKS=W;
+   if(!KEY||!WEEKS[KEY])KEY=keys().pop()||'';
+   setSync('● En vivo','ok');render();
+  },err=>{console.error(err);setSync(err.code==='permission-denied'?'Sin permiso de lectura (revisar reglas)':'Sin conexión','er');render()});
+  if(WANT_EDIT){
+   await Au.setPersistence(auth,Au.browserSessionPersistence);
+   gate('login');
+   Au.onAuthStateChanged(auth,async user=>{
+    if(!user){EDIT=false;USER=null;gate('login');render();return}
+    try{
+     const s=await Fs.getDoc(Fs.doc(db,'usuarios',user.uid));const d=s.exists()?s.data():null;
+     const ok=d&&d.aprobado&&(d.rol==='admin'||(Array.isArray(d.modulos)&&d.modulos.includes(MODULO)));
+     if(!ok){EDIT=false;USER=null;gate('noperm');render();return}
+     USER={uid:user.uid,email:d.email||user.email,nombre:d.nombre,rol:d.rol};EDIT=true;gate('');render();
+    }catch(e){console.error(e);EDIT=false;gate('login');$('gErr').textContent='No se pudo verificar tu cuenta.';render()}
+   });
+  }
+ }catch(e){console.error(e);setSync('No se pudo conectar','er');render()}
+}
+
+Object.assign(window,{irA,nav,setF,setE,setO,limpiar,borrarSemana,abrirModal,cerrarModal,pegarPortapapeles,cargarTexto,copiarLinkVisual,hacerLogin,hacerLogout});
+render();
+boot();
+</script>
+</body>
+</html>

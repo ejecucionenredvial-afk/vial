@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escritorio Gestión Vial</title>
+<style>
+:root{
+  --blue:#0a6cc9; --blue-dark:#0856a3; --blue-darker:#0b4a8f;
+  --ink:#16365a; --muted:#4d6785; --line:#dbe6f3; --line2:#cddcee;
+  --soft:#e3eefb; --soft2:#eef5fc; --ground:#eef4fb;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;font-size:14px;color:var(--ink);background:var(--ground);overflow:hidden;user-select:none}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:default;margin:0}
+button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+#app{position:relative;height:100vh;min-height:520px;display:flex;flex-direction:column}
+#main{flex:1;min-height:0;display:flex}
+
+/* Barra lateral */
+.side{width:236px;flex:none;display:flex;flex-direction:column;background:#fff;border-right:1px solid var(--line)}
+.brand{padding:24px 20px 18px;display:flex;align-items:center;gap:10px;min-height:92px}
+.brand .wm{line-height:1}
+.brand .wm b{display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;color:#1f3a5c}
+.brand .wm i{display:block;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:2.5px;color:var(--blue);margin-top:3px}
+.brand img{max-width:100%;max-height:64px;display:block}
+#nav{flex:1;min-height:0;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.nav{width:100%;display:flex;align-items:center;gap:14px;padding:11px 14px;border:0;border-radius:10px;background:transparent;text-align:left;font-weight:500}
+.nav .ni{display:flex;flex:none;color:var(--blue)}
+.nav .nt{line-height:1.25}
+.nav:hover{background:#eaf2fb}
+.nav.open{background:var(--soft2)}
+.nav.active{background:#dcebfb;font-weight:700}
+.org{flex:none;padding:22px 20px;background:var(--blue);color:#fff}
+.org b{display:block;font-size:16px;line-height:1.25}
+.org span{display:block;font-size:12.5px;margin-top:3px}
+
+/* Escritorio y ventanas */
+#desk{position:relative;flex:1;min-width:0;overflow:hidden;background:var(--ground)}
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;color:var(--muted);pointer-events:none;padding:24px}
+#empty b{font-size:22px;color:var(--blue)}
+#empty[hidden]{display:none}
+.win{position:absolute;display:flex;flex-direction:column;background:#fff;border:1px solid #9fc0e3;border-radius:10px;overflow:hidden;box-shadow:0 8px 22px rgba(10,60,120,.16)}
+.win.active{border-color:var(--blue);box-shadow:0 18px 44px rgba(10,60,120,.32)}
+.win.min{display:none}
+.win.max{left:0 !important;top:0 !important;width:100% !important;height:100% !important;border-radius:0}
+.bar{height:42px;flex:none;display:flex;align-items:center;gap:10px;padding:0 0 0 14px;background:#2f78bd;color:#fff;touch-action:none}
+.win.active .bar{background:var(--blue)}
+.bar .ico{display:flex;flex:none}
+.bar .ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.wctl{width:48px;height:42px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;color:#fff}
+.wctl:hover{background:rgba(255,255,255,.22)}
+.wctl.close:hover{background:#c42b1c}
+.wctl:focus-visible{outline-color:#fff}
+.body{position:relative;flex:1;min-height:0;background:#f4f7fb}
+.body .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.body iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+.shield{position:absolute;inset:0;display:none}
+.win:not(.active) .shield{display:block}
+#desk.dragging .shield{display:block}
+.grip{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;z-index:2}
+.grip::after{content:"";position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:2px solid rgba(10,108,201,.55);border-bottom:2px solid rgba(10,108,201,.55)}
+.win.max .grip{display:none}
+
+/* Menú de inicio */
+#start{position:absolute;left:8px;bottom:56px;width:min(600px,calc(100% - 16px));max-height:calc(100% - 72px);z-index:9000;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 48px rgba(10,50,100,.28);overflow:hidden}
+#start[hidden]{display:none}
+.sq{padding:16px 16px 8px;flex:none}
+.sq input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--line2);background:#f3f7fc;color:var(--ink);font-family:inherit;font-size:14px;user-select:text}
+.sq input::placeholder{color:#5d7592}
+.sh{display:flex;justify-content:space-between;padding:8px 20px 6px;flex:none;font-size:12.5px;color:var(--muted)}
+.sh b{letter-spacing:.4px}
+.sg{flex:1;min-height:0;overflow:auto;padding:4px 12px 12px}
+#grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sitem{padding:10px 4px 8px;border:0;border-radius:8px;background:transparent;display:flex;flex-direction:column;align-items:center;gap:7px}
+.sitem:hover{background:var(--soft)}
+.sitem .si{width:44px;height:44px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--blue)}
+.sitem .sn{font-size:12.5px;line-height:1.25;text-align:center}
+#none{padding:28px 12px;text-align:center;color:var(--muted)}
+#none[hidden]{display:none}
+.sf{flex:none;padding:12px 20px;background:var(--blue);color:#fff;line-height:1.3}
+.sf b{display:block;font-size:14px}
+.sf span{font-size:12.5px}
+
+/* Barra de tareas */
+#taskbar{position:relative;z-index:9500;height:48px;flex:none;display:flex;align-items:stretch;background:var(--blue);color:#fff}
+.tbtn{border:0;color:#fff}
+.tbtn:hover{background:rgba(5,45,95,.6) !important}
+.tbtn:focus-visible{outline-color:#fff}
+#startBtn{width:78px;padding:0;background:var(--blue-dark);display:flex;align-items:center;justify-content:center}
+#startBtn.on{background:var(--blue-darker)}
+#tasks{flex:1;min-width:0;display:flex;align-items:stretch;gap:6px;padding:5px 8px 0;overflow:hidden}
+.task{position:relative;min-width:0;max-width:200px;padding:0 16px;border-radius:6px 6px 0 0;background:rgba(5,45,95,.22);display:flex;align-items:center;gap:10px}
+.task .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.task::after{content:"";position:absolute;left:6px;right:6px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:#b3d4f2}
+.task.active{background:rgba(5,45,95,.5)}
+.task.active::after{background:#fff}
+.task.mini::after{background:#6f9fd0}
+#clock{flex:none;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding:0 16px;line-height:1.25}
+#clock b{font-size:13px;font-weight:600}
+#clock span{font-size:12px}
+#showDesk{width:14px;padding:0;background:transparent;border-left:1px solid rgba(255,255,255,.35)}
+
+@media (max-width:700px){
+  .side{display:none}
+  .win{left:0 !important;top:0 !important;width:100% !important;height:100% !important;border-radius:0}
+  .grip{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="main">
+    <aside class="side">
+      <div class="brand" id="brand">
+        <svg width="42" height="42" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#0a6cc9"/><path d="M11 15l9 11 9-11" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="wm"><b>Lanús</b><i>GOBIERNO</i></div>
+      </div>
+      <nav id="nav" aria-label="Aplicaciones principales"></nav>
+      <div class="org"><b>Ejecución en Red Vial</b><span>Municipalidad de Lanús</span></div>
+    </aside>
+    <div id="desk">
+      <div id="empty"><b>Escritorio Gestión Vial</b><span>Elegí una aplicación de la barra lateral o del menú Inicio.</span></div>
+    </div>
+  </div>
+
+  <div id="start" hidden>
+    <div class="sq">
+      <label for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Buscar una aplicación</label>
+      <input id="q" type="text" autocomplete="off" placeholder="Buscar una aplicación">
+    </div>
+    <div class="sh"><b>Todas las aplicaciones</b><span id="count"></span></div>
+    <div class="sg">
+      <div id="grid"></div>
+      <div id="none" hidden>No hay ninguna aplicación con ese nombre.</div>
+    </div>
+    <div class="sf"><b>Ejecución en Red Vial</b><span>Municipalidad de Lanús</span></div>
+  </div>
+
+  <div id="taskbar">
+    <button class="tbtn" id="startBtn" aria-label="Menú de inicio">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6.2" height="6.2" rx="1"/><rect x="8.8" y="1" width="6.2" height="6.2" rx="1"/><rect x="1" y="8.8" width="6.2" height="6.2" rx="1"/><rect x="8.8" y="8.8" width="6.2" height="6.2" rx="1"/></svg>
+    </button>
+    <div id="tasks"></div>
+    <div id="clock"><b id="clockTime"></b><span id="clockDate"></span></div>
+    <button class="tbtn" id="showDesk" aria-label="Mostrar escritorio" title="Mostrar escritorio"></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------
+     LISTA DE APLICACIONES
+     Para agregar una app, copiá una línea y cambiá id, name y file.
+     nav:true = aparece también en la barra lateral.
+     ------------------------------------------------------------------ */
+  var APPS = [
+    { id: 'plan', name: 'Planificación Vial', file: 'PlanificacionVial.html', nav: true, icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z' },
+    { id: 'obras', name: 'Gestor de Obras', file: 'GestorObras.html', nav: true, icon: 'M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2zM10 15v-3a2 2 0 0 1 4 0v3M4 15a8 8 0 0 1 16 0' },
+    { id: 'fotos', name: 'Fotos', file: 'fotos.html', nav: true, icon: 'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+    { id: 'reclamos', name: 'Gestor de Reclamos', file: 'GestorReclamos.html', nav: true, icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 8v4M12 15h.01' },
+    { id: 'mapa', name: 'Mapa de Obras', file: 'MapaObras.html', nav: true, icon: 'M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3zM9 3v15M15 6v15' },
+    { id: 'parte', name: 'Parte del Día', file: 'ParteDelDia.html', nav: true, icon: 'M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1zM8 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 13l2 2 4-4' },
+    { id: 'indicadores', name: 'Indicadores', file: 'Indicadores.html', nav: true, icon: 'M3 3v18h18M7 16v-5M12 16V8M17 16v-3' },
+    { id: 'reportes', name: 'Reportes', file: 'Reportes.html', nav: true, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8' },
+    { id: 'cronograma', name: 'Cronograma', file: 'Cronograma.html', icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2' },
+    { id: 'inspecciones', name: 'Inspecciones de Campo', file: 'InspeccionesCampo.html', icon: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' },
+    { id: 'historico', name: 'Histórico de Obras', file: 'HistoricoObras.html', icon: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2' },
+    { id: 'planillasat', name: 'Planilla SAT', file: 'PlanillaSat.html', icon: 'M3 4h18v16H3zM3 10h18M3 15h18M9 4v16' },
+    { id: 'materiales', name: 'Gestión de Materiales', file: 'GestionMateriales.html', icon: 'M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8' },
+    { id: 'buscafotos', name: 'Buscador de Fotos', file: 'BuscadorFotos.html', icon: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3' },
+    { id: 'buscaot', name: 'Buscador OT Drive', file: 'BuscadorOT_Drive.html', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h6M14 2v6h6M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM22 22l-1.5-1.5' },
+    { id: 'collage', name: 'Collage de Fotos', file: 'CollageFotos.html', icon: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z' },
+    { id: 'verificador', name: 'Verificador de Fotos', file: 'VerificadorFotos.html', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4' },
+    { id: 'personal', name: 'Gestión de Personal', file: 'GestionPersonal.html', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+    { id: 'ficha', name: 'Ficha Personal', file: 'FichaPersonal.html', icon: 'M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 16a3 3 0 0 1 6 0M14 9h5M14 13h4' },
+    { id: 'docpersonal', name: 'Documentación Personal', file: 'DocumentacionPersonal.html', icon: 'M3 6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' },
+    { id: 'recibos', name: 'Recibos de Sueldo', file: 'UsuariosRecibo.html', icon: 'M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4' },
+    { id: 'agente', name: 'Agente Vial', file: 'AgenteVial.html', icon: 'M12 8V4M8 4h8M5 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zM9 14h.01M15 14h.01' },
+    { id: 'guia', name: 'Guía del Sistema', file: 'GuiaSistema.html', icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5' }
+  ];
+
+  var LOGO_FILE = 'logo-lanus.png'; /* si subís este archivo al repo, reemplaza el logo de la barra lateral */
+
+  var byId = {};
+  APPS.forEach(function (a) { byId[a.id] = a; });
+  var $ = function (id) { return document.getElementById(id); };
+  var desk = $('desk'), nav = $('nav'), tasks = $('tasks'), startEl = $('start'), startBtn = $('startBtn');
+  var q = $('q'), grid = $('grid'), countEl = $('count'), emptyEl = $('empty'), noneEl = $('none');
+  var wins = [];
+  var zc = 10;
+
+  function ic(d, s, sw) {
+    return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.7) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>';
+  }
+  function size() { return { w: desk.clientWidth, h: desk.clientHeight }; }
+
+  /* ---- Logo opcional ---- */
+  (function () {
+    var img = new Image();
+    img.alt = 'Lanús Gobierno';
+    img.onload = function () { var b = $('brand'); b.innerHTML = ''; b.appendChild(img); };
+    img.src = LOGO_FILE;
+  })();
+
+  /* ---- Barra lateral ---- */
+  APPS.filter(function (a) { return a.nav; }).forEach(function (a) {
+    var b = document.createElement('button');
+    b.className = 'nav';
+    b.dataset.id = a.id;
+    b.innerHTML = '<span class="ni">' + ic(a.icon, 24) + '</span><span class="nt"></span>';
+    b.querySelector('.nt').textContent = a.name;
+    b.onclick = function () { openApp(a.id); };
+    nav.appendChild(b);
+  });
+
+  /* ---- Menú de inicio ---- */
+  function norm(t) { return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function renderStart() {
+    var f = norm(q.value.trim());
+    var list = APPS.filter(function (a) { return !f || norm(a.name).indexOf(f) >= 0 || norm(a.file).indexOf(f) >= 0; });
+    grid.innerHTML = '';
+    list.forEach(function (a) {
+      var b = document.createElement('button');
+      b.className = 'sitem';
+      b.innerHTML = '<span class="si">' + ic(a.icon, 23) + '</span><span class="sn"></span>';
+      b.querySelector('.sn').textContent = a.name;
+      b.onclick = function () { openApp(a.id); };
+      grid.appendChild(b);
+    });
+    countEl.textContent = list.length + (list.length === 1 ? ' aplicación' : ' aplicaciones');
+    noneEl.hidden = list.length > 0;
+  }
+  function openStart() { q.value = ''; renderStart(); startEl.hidden = false; startBtn.classList.add('on'); q.focus(); }
+  function closeStart() { startEl.hidden = true; startBtn.classList.remove('on'); }
+  startBtn.onclick = function () { if (startEl.hidden) openStart(); else closeStart(); };
+  q.addEventListener('input', renderStart);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeStart();
+    if (e.key === 'Enter') { var first = grid.querySelector('.sitem'); if (first) first.click(); }
+  });
+  document.addEventListener('pointerdown', function (e) {
+    if (!startEl.hidden && !startEl.contains(e.target) && !startBtn.contains(e.target)) closeStart();
+  });
+  window.addEventListener('blur', closeStart); /* un clic dentro de una app también cierra el menú */
+
+  /* ---- Ventanas ---- */
+  function topVisible() {
+    var best = null;
+    wins.forEach(function (w) { if (!w.min && (!best || w.z > best.z)) best = w; });
+    return best;
+  }
+  function place(w) {
+    w.el.style.left = Math.round(w.x) + 'px';
+    w.el.style.top = Math.round(w.y) + 'px';
+    w.el.style.width = Math.round(w.w) + 'px';
+    w.el.style.height = Math.round(w.h) + 'px';
+  }
+  function sync() {
+    var top = topVisible();
+    wins.forEach(function (w) {
+      var act = (w === top);
+      w.el.classList.toggle('active', act);
+      w.el.classList.toggle('min', w.min);
+      w.el.classList.toggle('max', w.max);
+      w.el.style.zIndex = w.z;
+      w.tb.classList.toggle('active', act);
+      w.tb.classList.toggle('mini', w.min);
+    });
+    Array.prototype.forEach.call(nav.children, function (b) {
+      var has = wins.some(function (w) { return w.id === b.dataset.id; });
+      b.classList.toggle('open', has);
+      b.classList.toggle('active', !!(top && top.id === b.dataset.id));
+    });
+    emptyEl.hidden = wins.length > 0;
+  }
+  function focusWin(w) { w.min = false; w.z = ++zc; sync(); }
+  function minimize(w) { w.min = true; sync(); }
+  function toggleMax(w) { w.max = !w.max; w.z = ++zc; sync(); }
+  function closeWin(w) {
+    w.el.remove(); w.tb.remove();
+    wins.splice(wins.indexOf(w), 1);
+    sync();
+  }
+
+  function startDrag(w, e) {
+    if (w.max || e.button !== 0 || e.target.closest('.wctl')) return;
+    var bar = e.currentTarget;
+    var rect = desk.getBoundingClientRect();
+    var ox = e.clientX - rect.left - w.x, oy = e.clientY - rect.top - w.y;
+    bar.setPointerCapture(e.pointerId);
+    desk.classList.add('dragging');
+    function mv(ev) {
+      var s = size();
+      w.x = Math.max(120 - w.w, Math.min(ev.clientX - rect.left - ox, s.w - 120));
+      w.y = Math.max(0, Math.min(ev.clientY - rect.top - oy, s.h - 42));
+      place(w);
+    }
+    function up(ev) {
+      bar.removeEventListener('pointermove', mv);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+      try { bar.releasePointerCapture(ev.pointerId); } catch (x) {}
+      desk.classList.remove('dragging');
+    }
+    bar.addEventListener('pointermove', mv);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
+  }
+
+  function startResize(w, e) {
+    if (w.max || e.button !== 0) return;
+    var g = e.currentTarget;
+    var sx = e.clientX, sy = e.clientY, sw = w.w, sh = w.h;
+    g.setPointerCapture(e.pointerId);
+    desk.classList.add('dragging');
+    function mv(ev) {
+      var s = size();
+      w.w = Math.max(360, Math.min(sw + ev.clientX - sx, s.w - w.x));
+      w.h = Math.max(260, Math.min(sh + ev.clientY - sy, s.h - w.y));
+      place(w);
+    }
+    function up(ev) {
+      g.removeEventListener('pointermove', mv);
+      g.removeEventListener('pointerup', up);
+      g.removeEventListener('pointercancel', up);
+      try { g.releasePointerCapture(ev.pointerId); } catch (x) {}
+      desk.classList.remove('dragging');
+    }
+    g.addEventListener('pointermove', mv);
+    g.addEventListener('pointerup', up);
+    g.addEventListener('pointercancel', up);
+  }
+
+  function openApp(id) {
+    closeStart();
+    var ex = null;
+    wins.forEach(function (w) { if (w.id === id) ex = w; });
+    if (ex) { focusWin(ex); return; }
+    var a = byId[id];
+    if (!a) return;
+
+    var s = size();
+    var w = Math.max(320, Math.min(1100, Math.round(s.w * 0.8)));
+    var h = Math.max(260, Math.min(720, Math.round(s.h * 0.84)));
+    var n = wins.length % 6;
+    var x = Math.max(0, Math.min(Math.round((s.w - w) / 2) + n * 28, s.w - w));
+    var y = Math.max(0, Math.min(Math.round((s.h - h) / 2) + n * 28, s.h - h));
+    var win = { id: id, x: x, y: y, w: w, h: h, z: ++zc, min: false, max: false };
+
+    var el = document.createElement('section');
+    el.className = 'win';
+    el.setAttribute('aria-label', a.name);
+    el.innerHTML =
+      '<div class="bar"><span class="ico">' + ic(a.icon, 18, 1.9) + '</span><span class="ttl"></span>' +
+      '<button class="wctl" data-a="min" aria-label="Minimizar"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 6h8"/></svg></button>' +
+      '<button class="wctl" data-a="max" aria-label="Maximizar o restaurar"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 2.5h7v7h-7z"/></svg></button>' +
+      '<button class="wctl close" data-a="close" aria-label="Cerrar"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg></button></div>' +
+      '<div class="body"><div class="loading">Cargando…</div><iframe></iframe><div class="shield"></div></div>' +
+      '<div class="grip"></div>';
+    el.querySelector('.ttl').textContent = a.name;
+    var fr = el.querySelector('iframe');
+    fr.title = a.name;
+    fr.setAttribute('allow', 'camera; microphone; geolocation; clipboard-read; clipboard-write; fullscreen; autoplay');
+    fr.src = a.file;
+
+    var bar = el.querySelector('.bar');
+    bar.addEventListener('pointerdown', function (e) { startDrag(win, e); });
+    bar.addEventListener('dblclick', function (e) { if (!e.target.closest('.wctl')) toggleMax(win); });
+    el.querySelector('.grip').addEventListener('pointerdown', function (e) { startResize(win, e); });
+    el.addEventListener('pointerdown', function () { if (topVisible() !== win) focusWin(win); }, true);
+    el.querySelector('[data-a="min"]').onclick = function () { minimize(win); };
+    el.querySelector('[data-a="max"]').onclick = function () { toggleMax(win); };
+    el.querySelector('[data-a="close"]').onclick = function () { closeWin(win); };
+
+    var tb = document.createElement('button');
+    tb.className = 'tbtn task';
+    tb.innerHTML = ic(a.icon, 18, 1.8) + '<span class="tt"></span>';
+    tb.querySelector('.tt').textContent = a.name;
+    tb.onclick = function () {
+      if (win.min) focusWin(win);
+      else if (topVisible() === win) minimize(win);
+      else focusWin(win);
+    };
+
+    win.el = el; win.tb = tb;
+    wins.push(win);
+    desk.appendChild(el);
+    tasks.appendChild(tb);
+    place(win);
+    sync();
+  }
+
+  $('showDesk').onclick = function () {
+    wins.forEach(function (w) { w.min = true; });
+    closeStart();
+    sync();
+  };
+
+  /* ---- Reloj ---- */
+  function tick() {
+    var d = new Date();
+    $('clockTime').textContent = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    $('clockDate').textContent = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  tick();
+  setInterval(tick, 20000);
+
+  /* Abrir una app directo: escritorio.html#plan */
+  if (location.hash.length > 1) openApp(location.hash.slice(1));
+  sync();
+})();
+</script>
+</body>
+</html>

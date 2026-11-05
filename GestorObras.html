@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dirección de Ejecución en Red Vial — Sistema de Gestión de Obras</title>
@@ -361,7 +362,7 @@ async function driveListar(folderId){
   let items=[],pageToken='';
   do{
     const q=encodeURIComponent(`'${folderId}' in parents and trashed=false and (mimeType contains 'image/' or mimeType = 'application/vnd.google-apps.folder')`);
-    let url=`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000&key=${DRIVE_KEY}`;
+    let url=`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,modifiedTime)&pageSize=1000&key=${DRIVE_KEY}`;
     if(pageToken) url+=`&pageToken=${pageToken}`;
     const r=await fetch(url);
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||('Error '+r.status));}
@@ -371,24 +372,89 @@ async function driveListar(folderId){
   }while(pageToken);
   return items;
 }
+let driveFiles=[];   // lista actual de Drive [{id,name,mt}]
+let driveDups=[];    // [{keep:{id,name}, old:{id,name}}]
 function driveAplicar(files){
-  // files: [{id,name}] → fotos con nombre válido; las demás van a errores
-  const drivePrev=new Set(allPhotos.filter(p=>p.driveId).map(p=>p.driveId));
+  driveFiles=files;
   allPhotos=allPhotos.filter(p=>!p.driveId); // reemplaza lo anterior de Drive, conserva lo cargado a mano
   parseErrors=parseErrors.filter(e=>!e.drive);
+  driveDups=[];
   const existentes=new Set(allPhotos.map(fotoKey));
-  const nuevas=[];let dup=0;
-  for(const f of files){
+  const porClave={};
+  const nuevas=[];
+  // la más nueva/modificada primero: esa es la que se queda
+  const orden=files.slice().sort((x,y)=>(y.mt||'').localeCompare(x.mt||''));
+  for(const f of orden){
     const parsed=parseFileName(f.name);
-    if(!parsed){parseErrors.push({file:f.name,reason:getParseErrorReason(f.name),drive:true});continue;}
+    if(!parsed){parseErrors.push({file:f.name,reason:getParseErrorReason(f.name),drive:true,driveId:f.id});continue;}
     const k=fotoKey(parsed);
-    if(existentes.has(k)){dup++;continue;}
+    if(porClave[k]){driveDups.push({keep:porClave[k],old:{id:f.id,name:f.name}});continue;}
+    if(existentes.has(k)) continue; // ya cargada a mano
+    porClave[k]={id:f.id,name:f.name};
     existentes.add(k);
     nuevas.push({dataUrl:driveThumb(f.id),driveId:f.id,...parsed});
   }
   allPhotos=[...allPhotos,...nuevas];
   applyFilters();updateErrorBadge();
-  return {total:nuevas.length,dup};
+  return {total:nuevas.length,dup:driveDups.length};
+}
+// ── Login Google (para renombrar / borrar en Drive) ──
+const G_CLIENT_ID="204408939127-c82fskp7haajf524qgq2i6sa1kumirn7.apps.googleusercontent.com";
+let gTokenClient=null,gToken=null,gExp=0;
+function driveToken(){
+  if(gToken&&Date.now()<gExp) return Promise.resolve(gToken);
+  return new Promise((res,rej)=>{
+    if(typeof google==='undefined'||!google.accounts||!google.accounts.oauth2){rej(new Error('No cargó el login de Google. Revisá la conexión y recargá.'));return;}
+    if(!gTokenClient) gTokenClient=google.accounts.oauth2.initTokenClient({client_id:G_CLIENT_ID,scope:'https://www.googleapis.com/auth/drive',callback:''});
+    gTokenClient.callback=r=>{if(r.error){rej(new Error(r.error));return;}gToken=r.access_token;gExp=Date.now()+(r.expires_in*1000)-60000;res(gToken);};
+    gTokenClient.requestAccessToken({prompt:gToken?'':'consent'});
+  });
+}
+async function drivePatch(id,body){
+  const t=await driveToken();
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,name,modifiedTime`,{method:'PATCH',headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||('Error '+r.status));}
+  return r.json();
+}
+function driveGuardarCache(){try{localStorage.setItem(DRIVE_CACHE,JSON.stringify({files:driveFiles,ts:Date.now()}));}catch(e){}}
+// Renombrar desde "Ver errores"
+async function renombrarDrive(id){
+  const inp=document.getElementById('ren_'+id);if(!inp) return;
+  const f=driveFiles.find(x=>x.id===id);if(!f) return;
+  const m=f.name.match(/\.[^.]+$/);const ext=m?m[0]:'';
+  let nuevo=inp.value.trim().replace(/\.[^.]+$/,'');
+  if(!nuevo){showToast('Escribí el nombre','error');return;}
+  nuevo+=ext;
+  if(!parseFileName(nuevo)){showToast('Ese nombre todavía no es válido: '+getParseErrorReason(nuevo),'error');return;}
+  try{
+    showLoading('Renombrando en Drive...');
+    const r=await drivePatch(id,{name:nuevo});
+    f.name=r.name;f.mt=r.modifiedTime||new Date().toISOString();
+    driveGuardarCache();
+    driveAplicar(driveFiles);
+    hideLoading();
+    showToast('Nombre corregido ✓','success');
+    // si quedó repetida con otra foto, la vieja se elimina (la corregida es la más nueva)
+    const d=driveDups.filter(x=>x.keep.id===id);
+    if(d.length){await quitarViejas(d,true);}
+  }catch(e){hideLoading();showToast('No se pudo renombrar: '+e.message,'error');}
+  abrirErrores();
+}
+async function quitarViejas(lista,preguntar){
+  if(preguntar&&!confirm('Ya había una foto con esos mismos datos ('+lista.length+').\n\nSe manda a la papelera de Drive la VIEJA y queda la corregida.\n¿Confirmás?')) return;
+  try{
+    showLoading('Quitando fotos viejas...');
+    for(const d of lista){
+      await drivePatch(d.old.id,{trashed:true});
+      driveFiles=driveFiles.filter(x=>x.id!==d.old.id);
+    }
+    driveGuardarCache();driveAplicar(driveFiles);hideLoading();
+    showToast('Quedó solo la foto nueva ✓','success');
+  }catch(e){hideLoading();showToast('No se pudo eliminar: '+e.message,'error');}
+}
+async function quitarDuplicadas(i){
+  const d=driveDups[i];if(!d) return;
+  await quitarViejas([d],false);abrirErrores();
 }
 async function cargarDrive(manual){
   const btn=document.getElementById('btnDrive');
@@ -402,10 +468,9 @@ async function cargarDrive(manual){
     let todas=[],pend=[DRIVE_FOLDER];
     while(pend.length){
       const items=await driveListar(pend.shift());
-      items.forEach(it=>{if(it.mimeType==='application/vnd.google-apps.folder')pend.push(it.id);else todas.push({id:it.id,name:it.name});});
+      items.forEach(it=>{if(it.mimeType==='application/vnd.google-apps.folder')pend.push(it.id);else todas.push({id:it.id,name:it.name,mt:it.modifiedTime||''});});
     }
-    try{localStorage.setItem(DRIVE_CACHE,JSON.stringify({files:todas,ts:Date.now()}));}catch(e){}
-    const r=driveAplicar(todas);
+    const r=driveAplicar(todas);driveGuardarCache();
     updateDriveStatus(true,'☁️ Drive: '+r.total+' fotos · '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}));
     if(manual) showToast(r.total+' fotos desde Drive','success');
   }catch(e){
@@ -611,7 +676,7 @@ async function handleFiles(files){
 function updateErrorBadge(){
   const badge=document.getElementById('errorBadge');
   if(!badge) return;
-  const total=parseErrors.length+soloAntesWorks.length;
+  const total=parseErrors.length+soloAntesWorks.length+driveDups.length;
   if(total>0){
     badge.style.display='flex';
     badge.textContent=total;
@@ -624,8 +689,9 @@ function abrirErrores(){
   const list=document.getElementById('errorList');
   const tieneErrores=parseErrors.length>0;
   const tieneSoloAntes=soloAntesWorks.length>0;
+  const tieneDups=driveDups.length>0;
 
-  if(!tieneErrores && !tieneSoloAntes){
+  if(!tieneErrores && !tieneSoloAntes && !tieneDups){
     list.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:30px 0">✅ No hay errores ni fotos pendientes.</p>';
   } else {
     let html='';
@@ -644,15 +710,30 @@ function abrirErrores(){
       `).join('');
     }
 
+    // Sección: fotos duplicadas en Drive
+    if(tieneDups){
+      html+=`<div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#7c3aed;margin-bottom:8px;margin-top:${tieneSoloAntes?'14px':'0'};padding:8px 12px;background:#f5f3ff;border-radius:6px;border:1px solid #c4b5fd;">
+        ♻️ Fotos repetidas (${driveDups.length}) — queda la más nueva
+      </div>`;
+      html+=driveDups.map((d,i)=>`
+        <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid #7c3aed;border-radius:6px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:11.5px;color:var(--text);word-break:break-all">✅ Queda: ${d.keep.name}</div>
+          <div style="font-size:11.5px;color:#7c3aed;word-break:break-all;margin:3px 0 7px">🗑️ Se quita: ${d.old.name}</div>
+          <button class="btn-buscar" style="padding:6px 12px;font-size:12px" onclick="quitarDuplicadas(${i})">Quitar la vieja de Drive</button>
+        </div>
+      `).join('');
+    }
+
     // Sección: errores de nombre de archivo
     if(tieneErrores){
-      html+=`<div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#c0392b;margin-bottom:8px;margin-top:${tieneSoloAntes?'14px':'0'};padding:8px 12px;background:#fff5f5;border-radius:6px;border:1px solid #fca5a5;">
+      html+=`<div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#c0392b;margin-bottom:8px;margin-top:${(tieneSoloAntes||tieneDups)?'14px':'0'};padding:8px 12px;background:#fff5f5;border-radius:6px;border:1px solid #fca5a5;">
         ❌ Archivos con nombre incorrecto (${parseErrors.length})
       </div>`;
       html+=parseErrors.map(e=>`
         <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid #c0392b;border-radius:6px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:12px;font-weight:700;color:var(--text);word-break:break-all;margin-bottom:4px">📄 ${e.file}</div>
           <div style="font-size:11.5px;color:#c0392b;line-height:1.5">⚠️ ${e.reason}</div>
+          ${e.driveId?`<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="ren_${e.driveId}" value="${(e.file||'').replace(/\.[^.]+$/,'').replace(/"/g,'&quot;')}" style="flex:1;font-size:12px"><button class="btn-buscar" style="padding:6px 12px;font-size:12px" onclick="renombrarDrive('${e.driveId}')">Guardar</button></div><div style="font-size:10.5px;color:var(--text3);margin-top:3px">Formato: Dirección_tipo_antes|despues_DD-MM-AAAA</div>`:''}
         </div>
       `).join('');
     }
@@ -667,7 +748,7 @@ function cerrarErrores(){
 }
 
 function limpiarErrores(){
-  parseErrors=[];
+  parseErrors=[];driveDups=[];
   soloAntesWorks=[];
   updateErrorBadge();
   abrirErrores();
@@ -1035,7 +1116,7 @@ init();
       <h2 style="margin-bottom:0;color:#c0392b">⚠️ Archivos con error</h2>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">
-      Estos archivos no se pudieron leer. Corregí el nombre del archivo y volvé a cargarlo.
+      Los de Drive los podés corregir acá mismo: escribí el nombre y tocá Guardar (se renombra en Drive). Si queda repetida con otra foto, se elimina la vieja y queda la nueva.
     </p>
     <div id="errorList" style="overflow-y:auto;flex:1;max-height:50vh"></div>
     <div style="display:flex;gap:8px;margin-top:14px">

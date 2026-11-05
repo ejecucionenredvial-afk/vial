@@ -52,7 +52,7 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text)
 .sidebar-title .arr{font-size:9px;color:var(--blue3)}
 .filter-label{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;display:block}
 .filter-group{margin-bottom:11px}
-select,input[type="date"],input[type="text"]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 9px;font-size:12px;font-family:'Nunito Sans',sans-serif;outline:none;transition:border-color .2s;appearance:none}
+select,input[type="date"],input[type="month"],input[type="text"]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 9px;font-size:12px;font-family:'Nunito Sans',sans-serif;outline:none;transition:border-color .2s;appearance:none}
 select:focus,input:focus{border-color:var(--blue3)}
 .tipo-list{display:flex;flex-direction:column;gap:3px}
 .tipo-check-item{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:600;transition:background .15s;user-select:none}
@@ -237,6 +237,10 @@ select:focus,input:focus{border-color:var(--blue3)}
   <aside class="sidebar" id="sidebar">
     <div>
       <div class="sidebar-title"><span class="arr">▼</span> Cargar Fotos</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:10px">
+        <div id="driveEstado" style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">☁️ Drive: sin cargar</div>
+        <button class="btn-buscar" id="btnDrive" onclick="cargarDrive(true)" style="width:100%">🔄 Actualizar desde Drive</button>
+      </div>
       <div class="dropzone" id="dropzone">
         <input type="file" id="fileInput" multiple accept="image/*" onchange="handleFiles(this.files)">
         <div class="dz-icon">📸</div>
@@ -256,7 +260,20 @@ select:focus,input:focus{border-color:var(--blue3)}
         <div class="tipo-list" id="tipoList"></div>
       </div>
       <div class="filter-group">
-        <label class="filter-label">Rango de fechas</label>
+        <label class="filter-label">Período del informe</label>
+        <div class="date-pair" style="margin-bottom:6px">
+          <button class="btn-limpiar" onclick="setPeriodo('semana',0)">Esta semana</button>
+          <button class="btn-limpiar" onclick="setPeriodo('semana',-1)">Sem. anterior</button>
+          <button class="btn-limpiar" onclick="setPeriodo('mes',0)">Este mes</button>
+          <button class="btn-limpiar" onclick="setPeriodo('mes',-1)">Mes anterior</button>
+        </div>
+        <label class="filter-label">Otro mes</label>
+        <input type="month" id="mesInforme" onchange="setPeriodoMes(this.value)">
+        <label class="filter-label" style="margin-top:6px">Semana de (elegí un día)</label>
+        <input type="date" id="semanaDe" onchange="setPeriodoSemana(this.value)">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Rango de fechas (desde / hasta)</label>
         <div class="date-pair">
           <input type="date" id="fechaDesde" onchange="applyFilters()">
           <input type="date" id="fechaHasta" onchange="applyFilters()">
@@ -329,15 +346,108 @@ const TIPO_MAP=Object.fromEntries(TIPOS.map(t=>[t.id,t]));
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let allPhotos=[],filteredWorks=[],currentView='grid';
 let apiKey=localStorage.getItem('gestorobras_apikey')||'';
-let lastFolderId=localStorage.getItem('gestorobras_lastfolder')||'';
-let lastFolderName=localStorage.getItem('gestorobras_lastfoldername')||'';
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-function init(){buildTipoList();updateApiStatus();updateClock();setInterval(updateClock,1000);checkLastFolder();}
+function init(){buildTipoList();updateApiStatus();updateClock();setInterval(updateClock,1000);cargarDrive(false);}
 function updateClock(){const n=new Date();document.getElementById('dtDate').textContent=n.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});document.getElementById('dtTime').textContent=n.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});}
 function buildTipoList(){document.getElementById('tipoList').innerHTML=TIPOS.map(t=>`<label class="tipo-check-item"><input type="checkbox" checked data-tipo="${t.id}" onchange="applyFilters()"><span class="tipo-dot" style="background:${t.dot}"></span><span>${t.emoji} ${t.label}</span></label>`).join('');}
-function checkLastFolder(){if(lastFolderId){document.getElementById('lastFolderHint').style.display='block';document.getElementById('lastFolderName').textContent=lastFolderName||lastFolderId.slice(0,22)+'...';updateDriveStatus(true,lastFolderName||'Drive');}}
-function usarUltimaCarpeta(){document.getElementById('driveFolderId').value=lastFolderId;}
+// ── GOOGLE DRIVE (carga automática) ──────────────────────────────────────────
+const DRIVE_KEY="AIzaSyCTmsIBAwOlwndN2wddCTXi1wOXmQN3AkA";
+const DRIVE_FOLDER="1DZEHgnqF1utFl8jxHUL1mUncvlDFrEVJ";
+const DRIVE_CACHE='gestorobras_drivecache_v1';
+function updateDriveStatus(ok,txt){const el=document.getElementById('driveEstado');if(!el)return;el.textContent=txt||(ok?'☁️ Drive conectado':'☁️ Drive: sin cargar');el.style.color=ok?'#27ae60':'var(--text2)';}
+function driveThumb(id){return 'https://drive.google.com/thumbnail?id='+id+'&sz=w800';}
+async function driveListar(folderId){
+  let items=[],pageToken='';
+  do{
+    const q=encodeURIComponent(`'${folderId}' in parents and trashed=false and (mimeType contains 'image/' or mimeType = 'application/vnd.google-apps.folder')`);
+    let url=`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000&key=${DRIVE_KEY}`;
+    if(pageToken) url+=`&pageToken=${pageToken}`;
+    const r=await fetch(url);
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||('Error '+r.status));}
+    const d=await r.json();
+    items=items.concat(d.files||[]);
+    pageToken=d.nextPageToken||'';
+  }while(pageToken);
+  return items;
+}
+function driveAplicar(files){
+  // files: [{id,name}] → fotos con nombre válido; las demás van a errores
+  const drivePrev=new Set(allPhotos.filter(p=>p.driveId).map(p=>p.driveId));
+  allPhotos=allPhotos.filter(p=>!p.driveId); // reemplaza lo anterior de Drive, conserva lo cargado a mano
+  parseErrors=parseErrors.filter(e=>!e.drive);
+  const existentes=new Set(allPhotos.map(fotoKey));
+  const nuevas=[];let dup=0;
+  for(const f of files){
+    const parsed=parseFileName(f.name);
+    if(!parsed){parseErrors.push({file:f.name,reason:getParseErrorReason(f.name),drive:true});continue;}
+    const k=fotoKey(parsed);
+    if(existentes.has(k)){dup++;continue;}
+    existentes.add(k);
+    nuevas.push({dataUrl:driveThumb(f.id),driveId:f.id,...parsed});
+  }
+  allPhotos=[...allPhotos,...nuevas];
+  applyFilters();updateErrorBadge();
+  return {total:nuevas.length,dup};
+}
+async function cargarDrive(manual){
+  const btn=document.getElementById('btnDrive');
+  // 1) mostrar lo guardado la última vez (rápido, sin conexión)
+  if(!manual){
+    try{const c=JSON.parse(localStorage.getItem(DRIVE_CACHE)||'null');if(c&&c.files&&c.files.length){driveAplicar(c.files);updateDriveStatus(true,'☁️ '+c.files.length+' fotos (guardadas) · actualizando...');}}catch(e){}
+  }
+  if(btn){btn.disabled=true;btn.textContent='⏳ Cargando...';}
+  if(manual) updateDriveStatus(false,'☁️ Leyendo Drive...');
+  try{
+    let todas=[],pend=[DRIVE_FOLDER];
+    while(pend.length){
+      const items=await driveListar(pend.shift());
+      items.forEach(it=>{if(it.mimeType==='application/vnd.google-apps.folder')pend.push(it.id);else todas.push({id:it.id,name:it.name});});
+    }
+    try{localStorage.setItem(DRIVE_CACHE,JSON.stringify({files:todas,ts:Date.now()}));}catch(e){}
+    const r=driveAplicar(todas);
+    updateDriveStatus(true,'☁️ Drive: '+r.total+' fotos · '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}));
+    if(manual) showToast(r.total+' fotos desde Drive','success');
+  }catch(e){
+    updateDriveStatus(false,'⚠️ Drive sin conexión: '+e.message);
+    if(manual) showToast('No se pudo leer Drive: '+e.message,'error');
+  }
+  if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar desde Drive';}
+}
+// Baja a base64 (comprimido) solo las fotos que van al PDF
+async function driveFotoParaPDF(src){
+  if(!src||src.startsWith('data:')) return src;
+  const m=src.match(/[?&]id=([^&]+)/);if(!m) return src;
+  const id=m[1];
+  const urls=[`https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${DRIVE_KEY}`,`https://lh3.googleusercontent.com/d/${id}=w1200`];
+  for(const u of urls){
+    try{
+      const r=await fetch(u);if(!r.ok) continue;
+      const blob=await r.blob();
+      const url=URL.createObjectURL(blob);
+      const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+      const sc=Math.min(1,1000/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      return c.toDataURL('image/jpeg',0.8);
+    }catch(e){}
+  }
+  return null; // fotoEn dibuja "Sin foto"
+}
+async function resolverFotosPDF(works){
+  const cache={};
+  let n=0;const total=works.length*2;
+  for(const w of works){
+    for(const k of ['antes','despues']){
+      n++;
+      if(!w[k]) continue;
+      if(showLoading) showLoading('Bajando fotos de Drive... '+Math.ceil(n/2)+'/'+works.length);
+      if(!(w[k] in cache)) cache[w[k]]=await driveFotoParaPDF(w[k]);
+      w['_'+k+'PDF']=cache[w[k]];
+    }
+  }
+}
 function setView(v){currentView=v;document.getElementById('btnGrid').classList.toggle('active',v==='grid');document.getElementById('btnList').classList.toggle('active',v==='list');document.getElementById('cardsGrid').classList.toggle('list-view',v==='list');}
 function toggleSidebar(){const s=document.getElementById('sidebar');s.style.display=s.style.display==='none'?'':'none';}
 
@@ -689,6 +799,8 @@ async function generarPDF(){
   if(!filteredWorks.length){showToast('Sin trabajos para exportar','error');return;}
   showLoading('Generando PDF...');
   try{
+    await resolverFotosPDF(filteredWorks);
+    showLoading('Generando PDF...');
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const W=210,H=297,mg=14,cw=W-mg*2;
@@ -775,75 +887,55 @@ async function generarPDF(){
     doc.text('Dirección de Ejecución en Red Vial — Municipalidad de Lanús',W/2,H-5,{align:'center'});
 
     if(window._pdfTexto){doc.addPage();doc.setFillColor(...BG);doc.rect(0,0,W,H,'F');var ytx=50;doc.setTextColor(26,34,54);doc.setFont('helvetica','normal');doc.setFontSize(10);var lns=doc.splitTextToSize(window._pdfTexto,cw-10);for(var li=0;li<lns.length;li++){if(ytx>H-22){doc.addPage();doc.setFillColor(...BG);doc.rect(0,0,W,H,'F');ytx=14;}doc.text(lns[li],mg+5,ytx);ytx+=6;}window._pdfTexto='';}
-    // ── PÁGINA POR TRABAJO ────────────────────────────────────────────────────
-    for(const w of filteredWorks){
-      doc.addPage();
-      const ti=TIPO_MAP[w.tipo]||TIPO_MAP.otro;
-
-      // ── HEADER PÁGINA ───────────────────────────────
-      doc.setFillColor(...BG);doc.rect(0,0,W,H,'F');
-      // Franja superior BLANCA
-      doc.setFillColor(...WHITE);doc.rect(0,0,W,20,'F');
-      doc.setDrawColor(...BLUE);doc.setLineWidth(0.5);doc.line(0,20,W,20);
-      // Logo a la izquierda
-      drawLanusLogo(doc,mg,2,40,16);
-      // Separador vertical
-      doc.setDrawColor(...BLUE);doc.setLineWidth(0.3);doc.line(mg+46,3,mg+46,17);
-      // Título tipo de obra — oscuro, a la derecha del separador
+    // ── PÁGINAS DE TRABAJOS: 2 por hoja, fondo blanco, logo y pie claro ───────
+    const LINE=[207,214,224],LABEL=[91,111,140];
+    const hdrPagina=()=>{
+      doc.setFillColor(...WHITE);doc.rect(0,0,W,H,'F');
+      drawLanusLogo(doc,mg,4,55,12);
+      doc.setTextColor(...GRAY);doc.setFont('helvetica','normal');doc.setFontSize(8);
+      doc.text('Dirección de Ejecución en Red Vial',W-mg,9,{align:'right'});
       doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(11);
-      doc.text(ti.label.toUpperCase(),mg+50,13);
-      // Fecha del trabajo alineada a la derecha
-      doc.setFont('helvetica','normal');doc.setFontSize(8);
-      doc.setTextColor(...GRAY);
-      doc.text(w.date||fechaHoy,W-mg,13,{align:'right'});
-      // Línea separadora debajo de la franja
-      doc.setFillColor(220,228,240);doc.rect(0,20,W,0.5,'F');
-
-      y=28;
-      // Dirección
-      doc.setFillColor(...WHITE);doc.roundedRect(mg,y,cw,14,2,2,'F');
-      doc.setFillColor(...BLUE);doc.rect(mg,y,3.5,14,'F');
-      doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(w.address,mg+8,y+7);
+      doc.text('INFORME DE OBRAS',W-mg,15,{align:'right'});
+      doc.setDrawColor(...BLUE);doc.setLineWidth(0.6);doc.line(mg,20,W-mg,20);
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...GRAY);
+      doc.text('Período: '+periodoCorto,mg,25);
+    };
+    const pieP=()=>{
+      doc.setDrawColor(...LINE);doc.setLineWidth(0.3);doc.line(mg,H-12,W-mg,H-12);
+      doc.setTextColor(...LABEL);doc.setFont('helvetica','normal');doc.setFontSize(8);
+      doc.text('Generado el '+fechaHoy,mg,H-7);
+      doc.text('Página '+doc.internal.getNumberOfPages(),W-mg,H-7,{align:'right'});
+    };
+    const fotoEn=(src,x,yy,bw,bh)=>{
+      doc.setFillColor(238,241,246);doc.rect(x,yy,bw,bh,'F');
+      const sinFoto=()=>{doc.setTextColor(...LABEL);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Sin foto',x+bw/2,yy+bh/2,{align:'center'});};
+      if(!src){sinFoto();return;}
+      try{
+        const p=doc.getImageProperties(src);const r=Math.min(bw/p.width,bh/p.height);
+        const iw=p.width*r,ih=p.height*r;
+        doc.addImage(src,p.fileType||'JPEG',x+(bw-iw)/2,yy+(bh-ih)/2,iw,ih,undefined,'MEDIUM');
+      }catch(err){sinFoto();}
+    };
+    const BLOQ_H=112,IMG_H=86;
+    for(let i=0;i<filteredWorks.length;i++){
+      const w=filteredWorks[i];
+      if(i%2===0){doc.addPage();hdrPagina();pieP();}
+      const ti=TIPO_MAP[w.tipo]||TIPO_MAP.otro;
+      const by=30+(i%2)*(BLOQ_H+5);
+      doc.setDrawColor(...LINE);doc.setLineWidth(0.3);
+      doc.roundedRect(mg,by,cw,BLOQ_H,2,2,'S');
+      doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(11);
+      doc.text(doc.splitTextToSize((i+1)+'. '+w.address,cw-62)[0],mg+4,by+8);
       doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...GRAY);
-      const fechaLabel=w.date?`  ·  Fecha: ${w.date}`:'';
-      doc.text(`${ti.label}${fechaLabel}`,mg+8,y+12);
-      y+=18;
-
-      const hasBoth=w.antes&&w.despues;
-      const imgH=82;
-      if(hasBoth){
-        const hw=(cw-3)/2;
-        doc.setFillColor(...REDFOTO);doc.roundedRect(mg,y,hw,7,1,1,'F');
-        doc.setFillColor(...GREEN);doc.roundedRect(mg+hw+3,y,hw,7,1,1,'F');
-        doc.setTextColor(...WHITE);doc.setFont('helvetica','bold');doc.setFontSize(8);
-        doc.text('ANTES',mg+hw/2,y+5.5,{align:'center'});
-        doc.text('DESPUÉS',mg+hw+3+hw/2,y+5.5,{align:'center'});
-        y+=9;
-        const addImg=(src,x)=>{if(src){try{doc.addImage(src,'JPEG',x,y,hw,imgH,undefined,'MEDIUM');}catch{pholder(doc,x,y,hw,imgH);}}else pholder(doc,x,y,hw,imgH);};
-        addImg(w.antes,mg);addImg(w.despues,mg+hw+3);
-      } else {
-        const src=w.despues||w.antes;
-        const label=w.despues?'DESPUÉS':'ANTES';
-        const color=w.despues?GREEN:REDFOTO;
-        const imgW=cw*0.72;const imgX=mg+(cw-imgW)/2;
-        doc.setFillColor(...color);doc.roundedRect(imgX,y,imgW,7,1,1,'F');
-        doc.setTextColor(...WHITE);doc.setFont('helvetica','bold');doc.setFontSize(8);
-        doc.text(label,imgX+imgW/2,y+5.5,{align:'center'});
-        y+=9;
-        if(src){try{doc.addImage(src,'JPEG',imgX,y,imgW,imgH,undefined,'MEDIUM');}catch{pholder(doc,imgX,y,imgW,imgH);}}
-        else pholder(doc,imgX,y,imgW,imgH);
-      }
-      y+=imgH+5;
-      const desc=getDesc(w.tipo);
-      doc.setFillColor(248,249,252);doc.roundedRect(mg,y,cw,18,2,2,'F');
-      doc.setTextColor(...GRAY);doc.setFont('helvetica','italic');doc.setFontSize(8);
-      doc.splitTextToSize(desc,cw-8).forEach((l,i)=>doc.text(l,mg+4,y+6+i*4.5));
-
-      // Footer
-      doc.setFillColor(...BLUE);doc.rect(0,H-10,W,10,'F');
-      doc.setTextColor(...WHITE);doc.setFont('helvetica','normal');doc.setFontSize(7);
-      doc.text('Dirección de Ejecución en Red Vial — Municipalidad de Lanús',mg,H-4);
-      doc.text(`Pág. ${doc.internal.getNumberOfPages()}`,W-mg,H-4,{align:'right'});
+      doc.text(ti.label+(w.date?'  ·  '+w.date:''),mg+cw-4,by+8,{align:'right'});
+      const ix=mg+4,iw2=(cw-8-3)/2;
+      doc.setFillColor(...REDFOTO);doc.roundedRect(ix,by+13,iw2,6,1,1,'F');
+      doc.setFillColor(...GREEN);doc.roundedRect(ix+iw2+3,by+13,iw2,6,1,1,'F');
+      doc.setTextColor(...WHITE);doc.setFont('helvetica','bold');doc.setFontSize(8);
+      doc.text('ANTES',ix+iw2/2,by+17.4,{align:'center'});
+      doc.text('DESPUÉS',ix+iw2+3+iw2/2,by+17.4,{align:'center'});
+      fotoEn(w._antesPDF!==undefined?w._antesPDF:w.antes,ix,by+21,iw2,IMG_H);
+      fotoEn(w._despuesPDF!==undefined?w._despuesPDF:w.despues,ix+iw2+3,by+21,iw2,IMG_H);
     }
 
     doc.save(`Informe_RedVial_${fechaHoy.replace(/\//g,'-')}.pdf`);
@@ -860,7 +952,14 @@ function pholder(doc,x,y,w,h){doc.setFillColor(220,225,235);doc.rect(x,y,w,h,'F'
 function getDesc(tipo){const d={bacheo:'Bacheo asfáltico: reparación de deterioros superficiales mediante aplicación de mezcla asfáltica y compactación.',terminadora:'Extensión y nivelación de carpeta asfáltica con terminadora mecánica.',fresadora:'Fresado del pavimento existente para remoción de la capa deteriorada.',adoquinado:'Colocación de adoquines sobre base compactada con sellado de juntas.',albanileria:'Trabajos de albañilería: construcción, reparación o refacción de estructuras.',suelo:'Preparación y estabilización del suelo: excavación, nivelación y compactación.',sellado:'Sellado de juntas con material elastomérico para prevenir ingreso de agua.',otro:'Trabajos complementarios según necesidades de la obra.'};return d[tipo]||d.otro;}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-function limpiarFiltros(){['fechaDesde','fechaHasta','searchSide','searchTop'].forEach(id=>document.getElementById(id).value='');document.querySelectorAll('[data-tipo]').forEach(el=>el.checked=true);applyFilters();}
+// ── PERÍODO RÁPIDO (mes / semana) ─────────────────────────────────────────────
+function isoLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function aplicarPeriodo(d1,d2){document.getElementById('fechaDesde').value=isoLocal(d1);document.getElementById('fechaHasta').value=isoLocal(d2);applyFilters();}
+function setSemanaDe(base){const l=new Date(base.getFullYear(),base.getMonth(),base.getDate());l.setDate(l.getDate()-((l.getDay()+6)%7));const dom=new Date(l);dom.setDate(l.getDate()+6);aplicarPeriodo(l,dom);}
+function setPeriodo(tipo,off){const h=new Date();if(tipo==='semana'){const b=new Date(h);b.setDate(h.getDate()+off*7);setSemanaDe(b);}else{aplicarPeriodo(new Date(h.getFullYear(),h.getMonth()+off,1),new Date(h.getFullYear(),h.getMonth()+off+1,0));}}
+function setPeriodoMes(v){if(!v)return;const p=v.split('-').map(Number);aplicarPeriodo(new Date(p[0],p[1]-1,1),new Date(p[0],p[1],0));}
+function setPeriodoSemana(v){if(!v)return;const p=v.split('-').map(Number);setSemanaDe(new Date(p[0],p[1]-1,p[2]));}
+function limpiarFiltros(){['fechaDesde','fechaHasta','searchSide','searchTop','mesInforme','semanaDe'].forEach(id=>document.getElementById(id).value='');document.querySelectorAll('[data-tipo]').forEach(el=>el.checked=true);applyFilters();}
 function limpiarTodo(){allPhotos=[];filteredWorks=[];soloAntesWorks=[];parseErrors=[];document.getElementById('fileInput').value='';limpiarFiltros();updateDriveStatus(false);updateErrorBadge();showToast('Todo limpiado','info');}
 function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();localStorage.setItem('gestorobras_apikey',apiKey);updateApiStatus();document.getElementById('apiModal').style.display='none';showToast('API Key guardada. IA activada ✓','success');}
 function updateApiStatus(){const el=document.getElementById('apiStatus');el.textContent=apiKey?'✅ IA activa — Claude configurado':'⚠️ Sin API Key — IA inactiva';el.style.color=apiKey?'#27ae60':'var(--text2)';}

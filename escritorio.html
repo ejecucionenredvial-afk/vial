@@ -29,7 +29,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
 .sbtn.flip svg{transform:rotate(180deg)}
 .side.thin .brand{padding:16px 0;justify-content:center;min-height:76px}
 .side.thin .brand .wm{display:none}
-.side.thin .brand img{max-width:48px;max-height:48px;object-fit:contain}
+.side.thin .brand img{height:auto;width:auto;max-width:48px;max-height:48px;object-fit:contain}
 .side.thin .sbtools{flex-direction:column;align-items:center;padding:0 0 6px}
 .side.thin #nav{padding:10px 8px}
 .side.thin .nav{justify-content:center;padding:11px 0}
@@ -40,11 +40,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
 .side.thin .org .oi{display:block}
 #sideShow{width:44px;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;border-left:1px solid rgba(255,255,255,.25)}
 #sideShow[hidden]{display:none}
-.brand{padding:22px 18px 18px;display:flex;align-items:center;gap:10px;min-height:104px}
+.brand{padding:22px 18px 18px;display:flex;align-items:center;justify-content:center;gap:10px;min-height:104px}
 .brand .wm{line-height:1}
 .brand .wm b{display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;color:#1f3a5c}
 .brand .wm i{display:block;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:2.5px;color:var(--blue);margin-top:3px}
-.brand img{max-width:100%;max-height:96px;display:block}
+.brand img{height:120px;width:auto;max-width:100%;object-fit:contain;display:block}
 #nav{flex:1;min-height:0;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
 .nav{width:100%;display:flex;align-items:center;gap:14px;padding:11px 14px;border:0;border-radius:10px;background:transparent;text-align:left;font-weight:500}
 .nav .ni{display:flex;flex:none;color:var(--blue)}
@@ -122,7 +122,72 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
 #clock span{font-size:12px}
 #showDesk{width:14px;padding:0;background:transparent;border-left:1px solid rgba(255,255,255,.35)}
 
+/* Ingreso */
+#gate{position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ground)}
+#gate[hidden]{display:none}
+.gcard{width:min(400px,100%);background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px 28px 24px;box-shadow:0 18px 48px rgba(10,50,100,.16)}
+.gbrand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px}
+.gbrand .wm{line-height:1}
+.gbrand .wm b{display:block;font-size:30px;font-weight:700;letter-spacing:-.5px;color:#1f3a5c}
+.gbrand .wm i{display:block;font-style:normal;font-size:11.5px;font-weight:700;letter-spacing:2.5px;color:var(--blue);margin-top:3px}
+.gbrand img{height:84px;width:auto;max-width:100%;object-fit:contain;display:block}
+.gsec{text-align:center;color:var(--muted)}
+.gcard h1{margin:0 0 14px;font-size:19px;color:var(--ink);text-align:center}
+.gcard form{text-align:left}
+.gcard label{display:block;margin:12px 0 5px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.gcard input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid var(--line2);background:#f3f7fc;color:var(--ink);font-family:inherit;font-size:14px;user-select:text}
+.gerr{min-height:20px;margin-top:10px;font-size:13px;color:#b3261e}
+.gbtn{width:100%;margin-top:6px;padding:12px;border:0;border-radius:8px;background:var(--blue);color:#fff;font-weight:600;font-size:14px}
+.gbtn:hover{background:var(--blue-dark)}
+.gbtn:disabled{opacity:.6}
+
+/* Usuario en la barra de tareas */
+#adminBtn,#logoutBtn{width:46px;padding:0;background:transparent;display:flex;align-items:center;justify-content:center}
+#adminBtn[hidden]{display:none}
+#userChip{flex:none;max-width:220px;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;font-size:13px;font-weight:600}
+#uName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Panel de administración */
+#admin{position:fixed;inset:0;z-index:19000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,30,60,.45)}
+#admin[hidden]{display:none}
+.apanel{width:min(940px,100%);height:min(640px,100%);display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(10,50,100,.4)}
+.ahead{flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 20px;height:48px;background:var(--blue);color:#fff;font-weight:700}
+.ahead button{width:42px;height:42px;border:0;background:transparent;color:#fff;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.ahead button:hover{background:rgba(255,255,255,.2)}
+.abody{flex:1;min-height:0;display:flex}
+.alist{width:290px;flex:none;overflow:auto;border-right:1px solid var(--line);padding:8px;background:#f7faff;color:var(--muted)}
+.aitem{position:relative;width:100%;display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border:0;border-radius:8px;background:transparent}
+.aitem:hover{background:var(--soft2)}
+.aitem.sel{background:#dcebfb}
+.aitem .an{font-weight:600;color:var(--ink);padding-right:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aitem .am{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.abadge{position:absolute;right:10px;top:10px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--soft);color:var(--blue)}
+.abadge.pend{background:#fff0d6;color:#8a4b00}
+.aedit{flex:1;min-width:0;overflow:auto;padding:20px 24px;color:var(--ink)}
+.aedit h2{margin:0;font-size:18px}
+.aedit .asub{margin:2px 0 16px;color:var(--muted);font-size:13px}
+.arow{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-bottom:14px}
+.arow label{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.arow select{padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:#f3f7fc;color:var(--ink);font-family:inherit;font-size:13.5px}
+.anote{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.atools{display:flex;gap:8px;margin:6px 0 10px}
+.abtn{padding:8px 14px;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink);font-size:13px}
+.abtn:hover{background:var(--soft)}
+.abtn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.abtn.pri:hover{background:var(--blue-dark)}
+.abtn:disabled{opacity:.55}
+.agrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 16px;margin-bottom:16px}
+.agrid.off{opacity:.5}
+.agrid label{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13.5px}
+.asave{display:flex;align-items:center;gap:14px}
+.astat{font-size:13px;color:var(--muted)}
+.aedit input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue)}
+
 @media (max-width:700px){
+  .abody{flex-direction:column}
+  .alist{width:auto;max-height:200px;border-right:0;border-bottom:1px solid var(--line)}
+  .agrid{grid-template-columns:1fr}
+  #userChip{display:none}
   .side{display:none}
   .win{left:0 !important;top:0 !important;width:100% !important;height:100% !important;border-radius:0}
   .grip{display:none}
@@ -149,7 +214,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
       <div class="org"><b>Ejecución en Red Vial</b><span>Municipalidad de Lanús</span><i class="oi">RV</i></div>
     </aside>
     <div id="desk">
-      <div id="empty"><b>Escritorio Gestión Vial</b><span>Elegí una aplicación de la barra lateral o del menú Inicio.</span></div>
+      <div id="empty"><b>Escritorio Gestión Vial</b><span id="emptyMsg">Elegí una aplicación de la barra lateral o del menú Inicio.</span></div>
     </div>
   </div>
 
@@ -166,6 +231,40 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
     <div class="sf"><b>Ejecución en Red Vial</b><span>Municipalidad de Lanús</span></div>
   </div>
 
+  <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gTitle">
+    <div class="gcard">
+      <div class="gbrand" id="gateBrand">
+        <svg width="46" height="46" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#0a6cc9"/><path d="M11 15l9 11 9-11" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="wm"><b>Lanús</b><i>GOBIERNO</i></div>
+      </div>
+      <div id="gLoad" class="gsec">Cargando…</div>
+      <form id="gLogin" hidden>
+        <h1 id="gTitle">Ingresá a tu escritorio</h1>
+        <label for="gEmail">Email</label>
+        <input id="gEmail" type="email" autocomplete="username">
+        <label for="gPass">Contraseña</label>
+        <input id="gPass" type="password" autocomplete="current-password">
+        <div id="gErr" class="gerr" role="alert"></div>
+        <button id="gBtn" type="submit" class="gbtn">Ingresar</button>
+      </form>
+      <div id="gPending" class="gsec" hidden>
+        <h1>Cuenta pendiente de aprobación</h1>
+        <p>Tu usuario todavía no fue aprobado. Pedile al administrador que lo habilite.</p>
+        <button id="gOut" type="button" class="gbtn">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin" hidden>
+    <div class="apanel" role="dialog" aria-modal="true" aria-labelledby="aTitle">
+      <div class="ahead">
+        <span id="aTitle">Usuarios y accesos</span>
+        <button id="aClose" type="button" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg></button>
+      </div>
+      <div class="abody"><div class="alist" id="aList"></div><div class="aedit" id="aEdit"></div></div>
+    </div>
+  </div>
+
   <div id="taskbar">
     <button class="tbtn" id="startBtn" aria-label="Menú de inicio">
       <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6.2" height="6.2" rx="1"/><rect x="8.8" y="1" width="6.2" height="6.2" rx="1"/><rect x="1" y="8.8" width="6.2" height="6.2" rx="1"/><rect x="8.8" y="8.8" width="6.2" height="6.2" rx="1"/></svg>
@@ -174,6 +273,16 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM9 5v14"/></svg>
     </button>
     <div id="tasks"></div>
+    <button class="tbtn" id="adminBtn" hidden aria-label="Administrar usuarios y accesos" title="Administrar usuarios y accesos">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </button>
+    <div id="userChip">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+      <span id="uName"></span>
+    </div>
+    <button class="tbtn" id="logoutBtn" aria-label="Cerrar sesión" title="Cerrar sesión">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
     <div id="clock"><b id="clockTime"></b><span id="clockDate"></span></div>
     <button class="tbtn" id="showDesk" aria-label="Mostrar escritorio" title="Mostrar escritorio"></button>
   </div>
@@ -256,15 +365,61 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
   function size() { return { w: desk.clientWidth, h: desk.clientHeight }; }
 
   /* ---- Logo opcional ---- */
+  /* Al cargar el logo se recorta el margen vacío (transparente o blanco) para que se vea del tamaño real */
   (function () {
-    var img = new Image();
-    img.alt = 'Lanús Gobierno';
-    img.onload = function () { var b = $('brand'); b.innerHTML = ''; b.appendChild(img); };
-    img.src = LOGO_FILE;
+    var src = new Image();
+    src.onload = function () {
+      var out = src;
+      try {
+        var w = src.naturalWidth, h = src.naturalHeight;
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        var cx = c.getContext('2d');
+        cx.drawImage(src, 0, 0);
+        var d = cx.getImageData(0, 0, w, h).data;
+        var t = h, l = w, r = -1, b = -1;
+        for (var py = 0; py < h; py++) {
+          for (var px = 0; px < w; px++) {
+            var i = (py * w + px) * 4;
+            var solid = d[i + 3] > 20 && !(d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245);
+            if (solid) {
+              if (px < l) l = px;
+              if (px > r) r = px;
+              if (py < t) t = py;
+              if (py > b) b = py;
+            }
+          }
+        }
+        if (r >= l && b >= t && (r - l + 1 < w || b - t + 1 < h)) {
+          var cw = r - l + 1, ch = b - t + 1;
+          var c2 = document.createElement('canvas');
+          c2.width = cw; c2.height = ch;
+          c2.getContext('2d').drawImage(src, l, t, cw, ch, 0, 0, cw, ch);
+          var tr = new Image();
+          tr.src = c2.toDataURL('image/png');
+          out = tr;
+        }
+      } catch (e) { out = src; }
+      out.alt = 'Lanús Gobierno';
+      var bx = $('brand');
+      bx.innerHTML = '';
+      bx.appendChild(out);
+      var gb = $('gateBrand');
+      if (gb) { gb.innerHTML = ''; gb.appendChild(out.cloneNode(true)); }
+    };
+    src.src = LOGO_FILE;
   })();
 
   /* ---- Barra lateral ---- */
-  APPS.filter(function (a) { return a.nav; }).forEach(function (a) {
+  var VISIBLE = []; /* apps habilitadas para el usuario que ingresó */
+  function isVisible(id) {
+    return VISIBLE.some(function (a) { return a.id === id; });
+  }
+  function buildNav() {
+    nav.innerHTML = '';
+    /* con pocas apps habilitadas se listan todas; con muchas, solo las principales */
+    var list = VISIBLE.length <= 10 ? VISIBLE : VISIBLE.filter(function (a) { return a.nav; });
+    list.forEach(function (a) {
     var b = document.createElement('button');
     b.className = 'nav';
     b.dataset.id = a.id;
@@ -273,13 +428,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
     b.querySelector('.nt').textContent = a.name;
     b.onclick = function () { openApp(a.id); };
     nav.appendChild(b);
-  });
+    });
+  }
 
   /* ---- Menú de inicio ---- */
   function norm(t) { return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
   function renderStart() {
     var f = norm(q.value.trim());
-    var list = APPS.filter(function (a) { return !f || norm(a.name).indexOf(f) >= 0 || norm(a.file).indexOf(f) >= 0; });
+    var list = VISIBLE.filter(function (a) { return !f || norm(a.name).indexOf(f) >= 0 || norm(a.file).indexOf(f) >= 0; });
     grid.innerHTML = '';
     list.forEach(function (a) {
       var b = document.createElement('button');
@@ -399,7 +555,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
     wins.forEach(function (w) { if (w.id === id) ex = w; });
     if (ex) { focusWin(ex); return; }
     var a = byId[id];
-    if (!a) return;
+    if (!a || !isVisible(id)) return;
 
     var s = size();
     var w = Math.max(320, Math.min(1100, Math.round(s.w * 0.8)));
@@ -467,9 +623,314 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
   tick();
   setInterval(tick, 20000);
 
-  /* Abrir una app directo: escritorio.html#plan */
-  if (location.hash.length > 1) openApp(location.hash.slice(1));
+  /* ------------------------------------------------------------------
+     INGRESO, PERMISOS Y ESCRITORIO POR USUARIO
+     Usa los mismos usuarios del sistema: Firebase Auth + usuarios/{uid}
+     con los campos nombre, rol ('admin' / 'usuario'), aprobado y modulos
+     (lista de archivos, ej. ["FichaPersonal.html"]).
+     El admin ve todo; el resto, solo lo que tiene en "modulos".
+     Aviso: esto oculta apps en el escritorio, no bloquea el link directo.
+     ------------------------------------------------------------------ */
+  var FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyCiQuc-g5fNFdPUqPO1FC8xMbDyZGwn2u8',
+    authDomain: 'ventana-integradora.firebaseapp.com',
+    projectId: 'ventana-integradora',
+    storageBucket: 'ventana-integradora.firebasestorage.app',
+    messagingSenderId: '263265819564',
+    appId: '1:263265819564:web:e7e7583eb4fefe9bdff809'
+  };
+  var FB = 'https://www.gstatic.com/firebasejs/12.15.0/';
+  var fb = null, auth = null, db = null, me = null;
+  var unsubMe = null, unsubUsers = null;
+  var pendingHash = location.hash.length > 1 ? location.hash.slice(1) : ''; /* escritorio.html#plan */
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function authMsg(code) {
+    var m = {
+      'auth/invalid-email': 'Email inválido.',
+      'auth/user-not-found': 'No existe una cuenta con ese email.',
+      'auth/wrong-password': 'Contraseña incorrecta.',
+      'auth/invalid-credential': 'Email o contraseña incorrectos.',
+      'auth/too-many-requests': 'Demasiados intentos. Probá de nuevo en unos minutos.',
+      'auth/network-request-failed': 'Sin conexión a internet. Probá de nuevo.'
+    };
+    return m[code] || ('Ocurrió un error (' + code + '). Probá de nuevo.');
+  }
+
+  function showGate(view, msg) {
+    $('gate').hidden = false;
+    $('gLoad').hidden = (view !== 'load');
+    $('gLogin').hidden = (view !== 'login');
+    $('gPending').hidden = (view !== 'pending');
+    $('gErr').textContent = msg || '';
+    if (view === 'login') {
+      $('gPass').value = '';
+      $('gEmail').focus();
+    }
+  }
+
+  function closeAllWins() { wins.slice().forEach(closeWin); }
+
+  function computeVisible() {
+    if (!me) return [];
+    if (me.rol === 'admin') return APPS.slice();
+    return APPS.filter(function (a) { return me.modulos.indexOf(a.file) >= 0; });
+  }
+
+  function noUser(view, msg) {
+    me = null;
+    VISIBLE = [];
+    closeAllWins();
+    buildNav();
+    sync();
+    showGate(view, msg);
+  }
+
+  function applyUser() {
+    VISIBLE = computeVisible();
+    buildNav();
+    wins.slice().forEach(function (w) { if (!isVisible(w.id)) closeWin(w); });
+    $('uName').textContent = me.nombre + (me.rol === 'admin' ? ' (admin)' : '');
+    $('adminBtn').hidden = (me.rol !== 'admin');
+    $('emptyMsg').textContent = VISIBLE.length
+      ? 'Elegí una aplicación de la barra lateral o del menú Inicio.'
+      : 'No tenés aplicaciones habilitadas. Pedile acceso al administrador.';
+    $('gate').hidden = true;
+    sync();
+    if (pendingHash) { openApp(pendingHash); pendingHash = ''; }
+  }
+
+  function onUser(user) {
+    if (unsubMe) { unsubMe(); unsubMe = null; }
+    closeAdmin();
+    if (!user) { noUser('login'); return; }
+    showGate('load');
+    unsubMe = fb.fs.onSnapshot(fb.fs.doc(db, 'usuarios', user.uid), function (snap) {
+      var d = snap.exists() ? snap.data() : null;
+      if (!d || !d.aprobado) { noUser('pending'); return; }
+      me = {
+        uid: user.uid,
+        email: d.email || user.email || '',
+        nombre: d.nombre || d.email || user.email || 'Usuario',
+        rol: d.rol,
+        modulos: Array.isArray(d.modulos) ? d.modulos : []
+      };
+      applyUser();
+    }, function (e) {
+      noUser('login', 'No se pudo leer tu usuario (' + (e.code || e.message) + ').');
+    });
+  }
+
+  function doLogin(e) {
+    e.preventDefault();
+    var em = $('gEmail').value.trim(), pw = $('gPass').value;
+    var err = $('gErr');
+    err.textContent = '';
+    if (!em || !pw) { err.textContent = 'Completá email y contraseña.'; return; }
+    if (!auth) { err.textContent = 'Todavía no se pudo conectar con el sistema. Recargá la página.'; return; }
+    $('gBtn').disabled = true;
+    fb.auth.signInWithEmailAndPassword(auth, em, pw)
+      .catch(function (x) { err.textContent = authMsg(x.code); })
+      .then(function () { $('gBtn').disabled = false; });
+  }
+
+  function initAuth() {
+    showGate('load');
+    Promise.all([
+      import(FB + 'firebase-app.js'),
+      import(FB + 'firebase-auth.js'),
+      import(FB + 'firebase-firestore.js')
+    ]).then(function (m) {
+      fb = { app: m[0], auth: m[1], fs: m[2] };
+      var app = fb.app.initializeApp(FIREBASE_CONFIG);
+      auth = fb.auth.getAuth(app);
+      db = fb.fs.getFirestore(app);
+      /* misma persistencia que los módulos: la sesión se comparte con las apps abiertas en ventanas */
+      return fb.auth.setPersistence(auth, fb.auth.browserSessionPersistence).then(function () {
+        fb.auth.onAuthStateChanged(auth, onUser);
+      });
+    }).catch(function (e) {
+      showGate('login', 'No se pudo conectar con el sistema (' + (e.code || e.message) + '). Revisá la conexión y recargá.');
+    });
+  }
+
+  /* ---- Panel de administración: accesos y roles ---- */
+  var admUsers = [], admSel = null, admDraft = null;
+
+  function openAdmin() {
+    if (!me || me.rol !== 'admin') return;
+    $('admin').hidden = false;
+    $('aList').textContent = 'Cargando usuarios…';
+    $('aEdit').innerHTML = '';
+    if (unsubUsers) unsubUsers();
+    unsubUsers = fb.fs.onSnapshot(fb.fs.collection(db, 'usuarios'), function (snap) {
+      admUsers = [];
+      snap.forEach(function (d) {
+        var x = d.data();
+        admUsers.push({
+          uid: d.id, nombre: x.nombre || '', email: x.email || '',
+          rol: x.rol || 'usuario', aprobado: !!x.aprobado,
+          modulos: Array.isArray(x.modulos) ? x.modulos : []
+        });
+      });
+      admUsers.sort(function (a, b) {
+        if (a.aprobado !== b.aprobado) return a.aprobado ? 1 : -1;
+        return (a.nombre || a.email).localeCompare(b.nombre || b.email, 'es');
+      });
+      renderAdmList();
+      var gone = admSel && !admUsers.some(function (u) { return u.uid === admSel; });
+      if (gone) { admSel = null; admDraft = null; }
+      if (!admSel) renderAdmEdit(); /* con un usuario elegido no se redibuja, para no perder lo que se está tildando */
+    }, function (e) {
+      $('aList').textContent = 'No se pudieron leer los usuarios (' + (e.code || e.message) + ').';
+    });
+  }
+
+  function closeAdmin() {
+    $('admin').hidden = true;
+    if (unsubUsers) { unsubUsers(); unsubUsers = null; }
+    admSel = null;
+    admDraft = null;
+  }
+
+  function renderAdmList() {
+    var box = $('aList');
+    box.innerHTML = '';
+    if (!admUsers.length) { box.textContent = 'No hay usuarios.'; return; }
+    admUsers.forEach(function (u) {
+      var b = el('button', 'aitem' + (u.uid === admSel ? ' sel' : ''));
+      b.type = 'button';
+      b.appendChild(el('span', 'an', u.nombre || u.email || u.uid));
+      b.appendChild(el('span', 'am', u.email));
+      if (!u.aprobado) b.appendChild(el('span', 'abadge pend', 'Pendiente'));
+      else if (u.rol === 'admin') b.appendChild(el('span', 'abadge', 'Admin'));
+      b.onclick = function () { selectAdm(u.uid); };
+      box.appendChild(b);
+    });
+  }
+
+  function selectAdm(uid) {
+    var u = null;
+    admUsers.forEach(function (x) { if (x.uid === uid) u = x; });
+    if (!u) return;
+    admSel = uid;
+    admDraft = { uid: uid, rol: u.rol, aprobado: u.aprobado, mods: {}, extras: [] };
+    /* los módulos que no están en la lista APPS se conservan al guardar */
+    u.modulos.forEach(function (m) {
+      if (APPS.some(function (a) { return a.file === m; })) admDraft.mods[m] = true;
+      else admDraft.extras.push(m);
+    });
+    renderAdmList();
+    renderAdmEdit();
+  }
+
+  function renderAdmEdit() {
+    var box = $('aEdit');
+    box.innerHTML = '';
+    var u = null;
+    admUsers.forEach(function (x) { if (x.uid === admSel) u = x; });
+    if (!u || !admDraft) {
+      box.appendChild(el('p', 'anote', 'Elegí un usuario de la lista para ver y cambiar sus accesos.'));
+      return;
+    }
+    var self = !!(me && u.uid === me.uid);
+    var isAdm = (admDraft.rol === 'admin');
+    box.appendChild(el('h2', '', u.nombre || u.email || u.uid));
+    box.appendChild(el('p', 'asub', u.email));
+
+    var row = el('div', 'arow');
+    var l1 = el('label', '', 'Rol ');
+    var sel = el('select');
+    [['usuario', 'Usuario'], ['admin', 'Administrador']].forEach(function (o) {
+      var op = el('option', '', o[1]);
+      op.value = o[0];
+      if (o[0] === admDraft.rol) op.selected = true;
+      sel.appendChild(op);
+    });
+    sel.disabled = self;
+    sel.onchange = function () { admDraft.rol = sel.value; renderAdmEdit(); };
+    l1.appendChild(sel);
+    row.appendChild(l1);
+    var l2 = el('label');
+    var cb = el('input');
+    cb.type = 'checkbox';
+    cb.checked = admDraft.aprobado;
+    cb.disabled = self;
+    cb.onchange = function () { admDraft.aprobado = cb.checked; };
+    l2.appendChild(cb);
+    l2.appendChild(document.createTextNode('Cuenta aprobada'));
+    row.appendChild(l2);
+    box.appendChild(row);
+    if (self) box.appendChild(el('p', 'anote', 'No podés cambiar tu propio rol ni tu aprobación.'));
+
+    box.appendChild(el('p', 'anote', isAdm
+      ? 'Los administradores ven todas las aplicaciones.'
+      : 'Tildá las aplicaciones que este usuario puede ver en su escritorio.'));
+    if (!isAdm) {
+      var tools = el('div', 'atools');
+      var bAll = el('button', 'abtn', 'Marcar todas');
+      bAll.type = 'button';
+      bAll.onclick = function () { APPS.forEach(function (a) { admDraft.mods[a.file] = true; }); renderAdmEdit(); };
+      var bNone = el('button', 'abtn', 'Quitar todas');
+      bNone.type = 'button';
+      bNone.onclick = function () { admDraft.mods = {}; renderAdmEdit(); };
+      tools.appendChild(bAll);
+      tools.appendChild(bNone);
+      box.appendChild(tools);
+    }
+    var grid = el('div', 'agrid' + (isAdm ? ' off' : ''));
+    APPS.forEach(function (a) {
+      var l = el('label');
+      var c = el('input');
+      c.type = 'checkbox';
+      c.checked = isAdm || !!admDraft.mods[a.file];
+      c.disabled = isAdm;
+      c.onchange = function () { admDraft.mods[a.file] = c.checked; };
+      l.appendChild(c);
+      l.appendChild(document.createTextNode(a.name));
+      grid.appendChild(l);
+    });
+    box.appendChild(grid);
+
+    var sv = el('div', 'asave');
+    var bs = el('button', 'abtn pri', 'Guardar cambios');
+    bs.type = 'button';
+    var st = el('span', 'astat');
+    bs.onclick = function () { saveAdm(bs, st); };
+    sv.appendChild(bs);
+    sv.appendChild(st);
+    box.appendChild(sv);
+  }
+
+  function saveAdm(btn, st) {
+    var d = admDraft;
+    if (!d) return;
+    var mods = APPS.filter(function (a) { return d.mods[a.file]; })
+      .map(function (a) { return a.file; }).concat(d.extras);
+    btn.disabled = true;
+    st.textContent = 'Guardando…';
+    fb.fs.updateDoc(fb.fs.doc(db, 'usuarios', d.uid), { rol: d.rol, aprobado: d.aprobado, modulos: mods })
+      .then(function () { st.textContent = 'Guardado ✓'; })
+      .catch(function (e) { st.textContent = 'No se pudo guardar (' + (e.code || e.message) + ').'; })
+      .then(function () { btn.disabled = false; });
+  }
+
+  $('gLogin').addEventListener('submit', doLogin);
+  $('gOut').onclick = function () { if (auth) fb.auth.signOut(auth); };
+  $('logoutBtn').onclick = function () { if (auth && confirm('¿Cerrar sesión?')) fb.auth.signOut(auth); };
+  $('adminBtn').onclick = openAdmin;
+  $('aClose').onclick = closeAdmin;
+  $('admin').addEventListener('pointerdown', function (e) { if (e.target === $('admin')) closeAdmin(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('admin').hidden) closeAdmin(); });
+
   sync();
+  initAuth();
 })();
 </script>
 </body>

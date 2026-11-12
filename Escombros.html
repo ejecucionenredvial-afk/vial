@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1524">
+<title>Remoción de Escombros</title>
+<style>
+:root{--bg:#0b1524;--card:#13223a;--card2:#17263d;--line:#25395a;--txt:#e8eef7;--mut:#8da2bf;--acc:#2f7fd1;--acc2:#1e3556;--accTxt:#9cc3f0;--bad:#e5645f;--ok:#3fae7c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px}
+body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+.wrap{max-width:640px;margin:0 auto;padding:12px 12px 0}
+h1{font-size:18px;font-weight:600;margin:0}
+h3{font-size:16px;font-weight:600;margin:0 0 8px}
+.mut{color:var(--mut)}.sm{font-size:12.5px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:9px;border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:10px;font-size:14px;font-weight:600}
+.tabs button.on{background:var(--acc2);color:var(--accTxt);border-color:var(--acc2)}
+.card{background:var(--card);border-radius:14px;padding:12px;margin-bottom:12px}
+input[type=text],textarea{width:100%;background:#0c1624;border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--txt);font-size:16px;font-family:inherit;margin-bottom:8px}
+textarea{resize:vertical;line-height:1.35;font-size:14px}
+input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+.fld{position:relative}
+.fld input{padding-right:50px}
+.ib{position:absolute;right:5px;top:5px;width:36px;height:36px;border:0;border-radius:8px;background:var(--acc2);color:var(--accTxt);display:flex;align-items:center;justify-content:center}
+.ib.busy{opacity:.5}
+.row{display:flex;gap:8px;align-items:center}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:10px;padding:12px;background:var(--acc2);color:var(--accTxt);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
+.btn.p{background:var(--acc);color:#fff}
+.btn.w{width:100%;flex:none;margin-bottom:8px}
+.btn.d{background:#3a1f26;color:#f0a3a0}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.85}
+.links{display:flex;justify-content:space-between;margin-top:10px;font-size:13px}
+.links a{color:var(--accTxt);text-decoration:underline;cursor:pointer}
+.prev{position:relative;margin-bottom:8px}
+.prev img{width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block}
+.prev button{position:absolute;top:6px;right:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;display:flex;align-items:center;justify-content:center}
+.sec{font-size:13px;color:var(--mut);margin:14px 2px 6px}
+.vacio{text-align:center;color:var(--mut);padding:26px 10px;font-size:14px}
+.pt{display:flex;gap:10px;align-items:center;background:var(--card2);border-radius:10px;padding:8px;margin-bottom:6px}
+.thumb{width:52px;height:52px;flex:none;border-radius:8px;background:#26426b center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:#9cc3f0;cursor:pointer}
+.thumb.n{background:transparent;border:1px dashed #4a6384;color:#6f86a6}
+.pi{flex:1;min-width:0}
+.pd{font-weight:600;font-size:14.5px;overflow-wrap:anywhere}
+.po{font-size:13px;color:#c5d3e6;overflow-wrap:anywhere}
+.pm{font-size:12px;color:var(--mut)}
+.pa{display:flex;flex-direction:column;gap:4px}
+.pa button{width:34px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--mut);display:flex;align-items:center;justify-content:center}
+.pa button:active{background:var(--acc2)}
+.ah{display:flex;justify-content:space-between;gap:8px;margin-bottom:2px}
+.acts{display:flex;gap:6px;margin-top:10px}
+.acts .btn{padding:9px;font-size:13.5px}
+.alist{margin-top:10px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:5}
+.bar .btn{max-width:616px;margin:0 auto}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:20;overflow:auto}
+.sin{max-width:640px;margin:0 auto;min-height:100%;background:var(--card);padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+#viewer{position:fixed;inset:0;background:#000;z-index:30;display:flex;align-items:center;justify-content:center}
+#viewer img{max-width:100%;max-height:100%}
+#toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#2b3f5e;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;max-width:92vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+#toast.on{opacity:1}#toast.bad{background:#7a2b2b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div><h1>Remoción de escombros</h1><div id="sub" class="mut sm"></div></div></div>
+  <div class="tabs"><button id="tabSem" class="on">Esta semana</button><button id="tabArch">Anteriores (0)</button></div>
+
+  <section id="vSem">
+    <div class="card">
+      <div class="fld"><input type="text" id="dir" placeholder="Dirección, ej. Madariaga 629" autocomplete="off" autocapitalize="words"><button class="ib" id="bGps" type="button" aria-label="Usar mi ubicación" data-ico="gps"></button></div>
+      <div id="gpsInfo" class="mut sm" style="margin:-2px 0 8px 2px" hidden>Ubicación GPS guardada para este punto</div>
+      <input type="text" id="obs" placeholder="Observación (opcional)" autocomplete="off">
+      <div class="prev" id="prev" hidden><img id="prevImg" alt="Foto del punto"><button id="qPrev" type="button" aria-label="Quitar foto" data-ico="x" data-s="16"></button></div>
+      <div class="row">
+        <button class="btn" id="bFoto" type="button"><span data-ico="cam"></span><span id="bFotoT">Foto</span></button>
+        <button class="btn p" id="bAgregar" type="button"><span data-ico="check"></span><span id="bAgregarT">Agregar</span></button>
+      </div>
+      <div class="links"><a id="lnkGal">Elegir de la galería</a><a id="bCancel" hidden>Cancelar edición</a></div>
+      <input type="file" id="file" accept="image/*" capture="environment" hidden>
+      <input type="file" id="file2" accept="image/*" hidden>
+    </div>
+    <div class="sec" id="secTit">Esta semana</div>
+    <div id="lista"></div>
+  </section>
+
+  <section id="vArch" hidden><div id="arch"></div></section>
+</div>
+
+<div class="bar" id="bar"><button class="btn p" id="bEnviar" type="button"><span data-ico="send"></span><span id="bEnviarT">Enviar semana</span></button></div>
+
+<div id="sheet" hidden>
+  <div class="sin">
+    <h3 id="sTit">Enviar semana</h3>
+    <div class="mut sm" style="margin-bottom:6px">Mensaje (podés editarlo antes de enviar)</div>
+    <textarea id="sTexto" rows="11"></textarea>
+    <div id="sEst" class="mut sm" style="margin-bottom:10px"></div>
+    <button class="btn p w" id="bShare" type="button"><span data-ico="send"></span><span>Compartir por WhatsApp<small>PDF + fotos + texto</small></span></button>
+    <div id="sNoShare" class="mut sm" style="margin-bottom:10px" hidden>Este equipo no permite compartir archivos desde acá. Descargá el PDF y las fotos y mandalos desde WhatsApp.</div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn" id="bCopy" type="button"><span data-ico="copy"></span>Copiar texto</button>
+      <button class="btn" id="bPdf" type="button"><span data-ico="pdf"></span>Descargar PDF</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn" id="bFotos" type="button"><span data-ico="dl"></span>Descargar fotos</button>
+      <button class="btn" id="bWa" type="button"><span data-ico="chat"></span>WhatsApp solo texto</button>
+    </div>
+    <button class="btn w" id="bArchivar" type="button" style="margin-top:6px"><span data-ico="arch"></span>Ya lo envié: archivar semana</button>
+    <button class="btn w d" id="bCerrar" type="button">Cerrar</button>
+  </div>
+</div>
+
+<div id="viewer" hidden><img id="vImg" alt="Foto ampliada"></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+'use strict';
+var HW=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,761,556,0,222,556,333,1000,556,556,333,1000,667,333,1000,0,611,0,0,222,222,333,333,350,556,1000,333,1000,500,333,944,0,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
+var HB=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,761,556,0,278,556,500,1000,556,556,333,1000,667,333,1000,0,611,0,0,278,278,500,500,350,556,1000,333,1000,556,333,944,0,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556];
+
+
+var $ = function (id) { return document.getElementById(id); };
+var KEY = 'escombros_v1';
+var DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+var pad = function (n) { return String(n).padStart(2, '0'); };
+var dm = function (t) { var d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); };
+var dmy = function (t) { return dm(t) + '/' + new Date(t).getFullYear(); };
+var hm = function (t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+var dia = function (t) { return DIAS[new Date(t).getDay()]; };
+var iso = function (t) { var d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+var uid = function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); };
+function addDias(t, n) { var d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); }
+function lunes(t) { var d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+function semanaDe(pts) {
+  var a = pts.length ? pts[0].ts : Date.now(), b = pts.length ? pts[pts.length - 1].ts : Date.now();
+  return { desde: lunes(a), hasta: addDias(lunes(b), 4), puntos: pts };
+}
+function slug(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'punto'; }
+
+/* ---------- iconos ---------- */
+var IC = {
+  cam: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  gps: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
+  edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  pdf: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  dl: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  arch: '<path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/>',
+  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
+};
+function ico(n, s) { return '<svg width="' + (s || 20) + '" height="' + (s || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none">' + IC[n] + '</svg>'; }
+document.querySelectorAll('[data-ico]').forEach(function (e) { e.insertAdjacentHTML('afterbegin', ico(e.dataset.ico, e.dataset.s)); });
+
+function toast(m, bad) { var t = $('toast'); t.textContent = m; t.className = 'on' + (bad ? ' bad' : ''); clearTimeout(toast.t); toast.t = setTimeout(function () { t.className = ''; }, 3400); }
+
+/* ---------- datos: puntos en localStorage, fotos en IndexedDB ---------- */
+var S = { actual: [], archivo: [] };
+try { var r0 = JSON.parse(localStorage.getItem(KEY) || 'null'); if (r0 && r0.actual) { S = r0; if (!S.archivo) S.archivo = []; } } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar. Liberá espacio en el celular.', true); } }
+
+var idbP = null, idbWarn = false, mem = {};
+function idb(mode, fn) {
+  if (!idbP) idbP = new Promise(function (res, rej) {
+    if (!window.indexedDB) return rej(new Error('sin indexedDB'));
+    var q = indexedDB.open('escombros', 1);
+    q.onupgradeneeded = function () { q.result.createObjectStore('fotos'); };
+    q.onsuccess = function () { res(q.result); };
+    q.onerror = function () { rej(q.error); };
+  });
+  return idbP.then(function (db) {
+    return new Promise(function (res, rej) {
+      var t = db.transaction('fotos', mode), rq = fn(t.objectStore('fotos'));
+      t.oncomplete = function () { res(rq && rq.result); };
+      t.onerror = t.onabort = function () { rej(t.error); };
+    });
+  });
+}
+function avisoIdb() { if (!idbWarn) { idbWarn = true; toast('Las fotos no se pueden guardar de forma permanente en este navegador.', true); } }
+function fPut(id, b) { mem[id] = b; return idb('readwrite', function (s) { return s.put(b, id); }).catch(avisoIdb); }
+function fGet(id) { return idb('readonly', function (s) { return s.get(id); }).then(function (b) { return b || mem[id] || null; }).catch(function () { return mem[id] || null; }); }
+function fDel(id) { delete mem[id]; return idb('readwrite', function (s) { return s.delete(id); }).catch(function () {}); }
+var urls = {};
+function urlDe(id) {
+  if (urls[id]) return Promise.resolve(urls[id]);
+  return fGet(id).then(function (b) { if (!b) return null; urls[id] = URL.createObjectURL(b); return urls[id]; });
+}
+function soltarUrl(id) { if (urls[id]) { URL.revokeObjectURL(urls[id]); delete urls[id]; } }
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+/* ---------- foto: achicar y pasar a JPEG ---------- */
+function comprimir(file) {
+  return new Promise(function (res, rej) {
+    var url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      try {
+        var w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, 1280 / Math.max(w, h));
+        w = Math.round(w * k); h = Math.round(h * k);
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+        c.toBlob(function (b) { URL.revokeObjectURL(url); if (b) res({ blob: b, w: w, h: h }); else rej(new Error('blob')); }, 'image/jpeg', 0.72);
+      } catch (e) { URL.revokeObjectURL(url); rej(e); }
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); rej(new Error('img')); };
+    im.src = url;
+  });
+}
+
+/* ---------- formulario ---------- */
+var form = { nuevo: null, tieneFoto: false, quitar: false, lat: null, lng: null, editId: null, prevUrl: null, propia: false };
+function limpiarPrev() { if (form.propia && form.prevUrl) URL.revokeObjectURL(form.prevUrl); form.prevUrl = null; form.propia = false; }
+function renderForm() {
+  var pv = $('prev');
+  pv.hidden = !(form.tieneFoto && form.prevUrl);
+  if (!pv.hidden) $('prevImg').src = form.prevUrl;
+  $('bFotoT').textContent = form.tieneFoto ? 'Cambiar foto' : 'Foto';
+  $('bAgregarT').textContent = form.editId ? 'Guardar cambios' : 'Agregar';
+  $('bCancel').hidden = !form.editId;
+  $('gpsInfo').hidden = form.lat == null;
+}
+function formReset() {
+  limpiarPrev();
+  form.nuevo = null; form.tieneFoto = false; form.quitar = false; form.lat = null; form.lng = null; form.editId = null;
+  $('dir').value = ''; $('obs').value = '';
+  renderForm();
+}
+function onFile(f) {
+  comprimir(f).then(function (r) {
+    limpiarPrev();
+    form.nuevo = r; form.tieneFoto = true; form.quitar = false;
+    form.prevUrl = URL.createObjectURL(r.blob); form.propia = true;
+    renderForm();
+  }).catch(function () { toast('No se pudo leer la foto. Probá de nuevo.', true); });
+}
+function quitarFoto() { limpiarPrev(); form.nuevo = null; form.tieneFoto = false; form.quitar = true; renderForm(); }
+
+function gps() {
+  if (!navigator.geolocation) { toast('Este equipo no tiene ubicación.', true); return; }
+  var b = $('bGps'); b.classList.add('busy'); toast('Buscando ubicación…');
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    form.lat = +pos.coords.latitude.toFixed(6); form.lng = +pos.coords.longitude.toFixed(6);
+    renderForm();
+    fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=es&lat=' + form.lat + '&lon=' + form.lng)
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var a = j.address || {}, calle = a.road || a.pedestrian || a.footway || a.path || '';
+        var t = (calle + ' ' + (a.house_number || '')).trim();
+        if (!t) t = String(j.display_name || '').split(',').slice(0, 2).join(',').trim();
+        if (!t) throw new Error('sin calle');
+        if (!$('dir').value.trim()) $('dir').value = t;
+        toast('Ubicación guardada: ' + t);
+      })
+      .catch(function () { toast('Guardé la ubicación, pero no pude obtener la calle. Escribí la dirección.', true); })
+      .then(function () { b.classList.remove('busy'); });
+  }, function (e) {
+    b.classList.remove('busy');
+    toast(e && e.code === 1 ? 'Permiso de ubicación denegado. Escribí la dirección.' : 'No se pudo obtener la ubicación. Escribí la dirección.', true);
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
+}
+
+var ocupado = false;
+function guardarPunto() {
+  if (ocupado) return;
+  var dir = $('dir').value.trim(), obs = $('obs').value.trim();
+  if (!dir) { toast('Escribí la dirección o usá el botón de ubicación.', true); $('dir').focus(); return; }
+  ocupado = true;
+  var tarea, editando = !!form.editId;
+  if (editando) {
+    var p = S.actual.filter(function (x) { return x.id === form.editId; })[0];
+    if (!p) { ocupado = false; formReset(); return; }
+    p.dir = dir; p.obs = obs; p.lat = form.lat; p.lng = form.lng;
+    if (form.nuevo) { tarea = fPut(p.id, form.nuevo.blob).then(function () { soltarUrl(p.id); p.foto = true; p.fw = form.nuevo.w; p.fh = form.nuevo.h; }); }
+    else if (form.quitar && p.foto) { tarea = fDel(p.id).then(function () { soltarUrl(p.id); p.foto = false; p.fw = 0; p.fh = 0; }); }
+    else tarea = Promise.resolve();
+  } else {
+    var n = { id: uid(), dir: dir, obs: obs, ts: Date.now(), lat: form.lat, lng: form.lng, foto: false, fw: 0, fh: 0 };
+    if (form.nuevo) { tarea = fPut(n.id, form.nuevo.blob).then(function () { n.foto = true; n.fw = form.nuevo.w; n.fh = form.nuevo.h; }); }
+    else tarea = Promise.resolve();
+    tarea = tarea.then(function () { S.actual.push(n); });
+  }
+  tarea.then(function () {
+    save(); formReset(); render();
+    toast(editando ? 'Cambios guardados' : 'Punto agregado (' + S.actual.length + ')');
+    if (!editando) $('dir').focus();
+  }).catch(function () { toast('No se pudo guardar el punto.', true); }).then(function () { ocupado = false; });
+}
+function editar(id) {
+  var p = S.actual.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+  limpiarPrev();
+  form.editId = id; form.nuevo = null; form.quitar = false; form.lat = p.lat == null ? null : p.lat; form.lng = p.lng == null ? null : p.lng;
+  form.tieneFoto = !!p.foto;
+  $('dir').value = p.dir; $('obs').value = p.obs || '';
+  var fin = function () { renderForm(); window.scrollTo(0, 0); $('dir').focus(); };
+  if (p.foto) urlDe(id).then(function (u) { form.prevUrl = u; fin(); }); else fin();
+}
+function borrar(id) {
+  var p = S.actual.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+  if (!confirm('¿Borrar el punto "' + p.dir + '"?')) return;
+  S.actual = S.actual.filter(function (x) { return x.id !== id; });
+  fDel(id); soltarUrl(id); save();
+  if (form.editId === id) formReset();
+  render(); toast('Punto borrado');
+}
+
+/* ---------- lista ---------- */
+function ptHtml(p, i, ro) {
+  var th = p.foto ? '<div class="thumb" data-act="ver" data-id="' + p.id + '" data-foto="1"></div>'
+    : '<div class="thumb n" ' + (ro ? '' : 'data-act="edit" data-id="' + p.id + '"') + '>' + ico('cam', 22) + '</div>';
+  return '<div class="pt" data-id="' + p.id + '">' + th +
+    '<div class="pi"><div class="pd">' + (i + 1) + '. ' + esc(p.dir) + '</div>' + (p.obs ? '<div class="po">' + esc(p.obs) + '</div>' : '') +
+    '<div class="pm">' + dia(p.ts) + ' ' + dm(p.ts) + (p.lat != null ? ' · ubicación GPS' : '') + (p.foto ? '' : ' · sin foto') + '</div></div>' +
+    (ro ? '' : '<div class="pa"><button data-act="edit" data-id="' + p.id + '" aria-label="Editar">' + ico('edit', 17) + '</button><button data-act="del" data-id="' + p.id + '" aria-label="Borrar">' + ico('trash', 17) + '</button></div>') + '</div>';
+}
+function hidratar(box) {
+  box.querySelectorAll('.thumb[data-foto]').forEach(function (el) {
+    urlDe(el.dataset.id).then(function (u) { if (u) el.style.backgroundImage = 'url("' + u + '")'; });
+  });
+}
+function render() {
+  var pts = S.actual, w = semanaDe(pts), cf = pts.filter(function (p) { return p.foto; }).length;
+  $('sub').textContent = 'Semana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + ' · ' + pts.length + ' punto' + (pts.length === 1 ? '' : 's') + (pts.length ? ' · ' + cf + ' con foto' : '');
+  $('lista').innerHTML = pts.length ? pts.map(function (p, i) { return ptHtml(p, i, false); }).join('') : '<div class="vacio">Todavía no cargaste puntos esta semana.</div>';
+  $('secTit').textContent = 'Esta semana (' + pts.length + ')';
+  $('bEnviarT').textContent = 'Enviar semana (' + pts.length + ')';
+  $('tabArch').textContent = 'Anteriores (' + S.archivo.length + ')';
+  hidratar($('lista'));
+}
+function renderArch() {
+  var box = $('arch');
+  if (!S.archivo.length) { box.innerHTML = '<div class="vacio">Acá van a quedar las semanas que envíes.</div>'; return; }
+  box.innerHTML = S.archivo.map(function (w) {
+    var cf = w.puntos.filter(function (p) { return p.foto; }).length;
+    return '<div class="card" data-wid="' + w.id + '"><div class="ah"><b>Semana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + '</b></div>' +
+      '<div class="mut sm">' + w.puntos.length + ' punto' + (w.puntos.length === 1 ? '' : 's') + ' · ' + cf + ' con foto · enviada ' + dia(w.enviada) + ' ' + dmy(w.enviada) + ' ' + hm(w.enviada) + '</div>' +
+      '<div class="acts"><button class="btn" data-a="ver">Ver puntos</button><button class="btn" data-a="reenviar">Enviar de nuevo</button><button class="btn d" data-a="borrar">Borrar</button></div>' +
+      '<div class="alist" hidden>' + w.puntos.map(function (p, i) { return ptHtml(p, i, true); }).join('') + '</div></div>';
+  }).join('');
+}
+
+/* ---------- texto del mensaje ---------- */
+function buildText(w) {
+  var pts = w.puntos, cf = pts.filter(function (p) { return p.foto; }).length;
+  var t = '*PEDIDO DE REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA*\nSemana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + '\nDirección de Ejecución en Red Vial - Municipalidad de Lanús\n\nTotal: ' + pts.length + ' punto' + (pts.length === 1 ? '' : 's') + ' (' + cf + ' con foto)\n';
+  pts.forEach(function (p, i) {
+    t += '\n' + (i + 1) + '. *' + p.dir + '*\n';
+    if (p.obs) t += '   ' + p.obs + '\n';
+    t += '   Cargado: ' + dia(p.ts) + ' ' + dm(p.ts) + (p.foto ? ' 📷' : '') + '\n';
+    if (p.lat != null) t += '   https://maps.google.com/?q=' + p.lat + ',' + p.lng + '\n';
+  });
+  t += '\nSe adjunta' + (cf ? 'n las fotos y' : '') + ' el PDF con el detalle de todos los pedidos.';
+  return t;
+}
+
+/* ---------- PDF (sin librerías) ---------- */
+var PW = 595.28, PH = 841.89, M = 40, CW = PW - 2 * M, TOP = 76, BOT = PH - 52;
+var AZ = [0.184, 0.498, 0.82], AZ2 = [0.09, 0.2, 0.4], TX = [0.1, 0.13, 0.18], GR = [0.4, 0.45, 0.52], BAND = [0.92, 0.95, 0.99], BAND2 = [0.965, 0.978, 0.995], LN = [0.78, 0.83, 0.9];
+var CP = { '€': 128, '‚': 130, 'ƒ': 131, '„': 132, '…': 133, '†': 134, '‡': 135, 'ˆ': 136, '‰': 137, 'Š': 138, '‹': 139, 'Œ': 140, 'Ž': 142, '‘': 145, '’': 146, '“': 147, '”': 148, '•': 149, '–': 150, '—': 151, '˜': 152, '™': 153, 'š': 154, '›': 155, 'œ': 156, 'ž': 158, 'Ÿ': 159 };
+function cpOf(ch) { var c = ch.charCodeAt(0); if ((c >= 32 && c < 127) || (c >= 160 && c < 256)) return c; return CP[ch] || 63; }
+function strW(s, b, sz) { var t = b ? HB : HW, w = 0; for (var ch of s) w += t[cpOf(ch)] || 0; return w * sz / 1000; }
+function pdfStr(s) { var o = '('; for (var ch of String(s)) { var c = cpOf(ch); if (c === 40 || c === 41 || c === 92) o += '\\'; o += String.fromCharCode(c); } return o + ')'; }
+function wrap(s, b, sz, maxW) {
+  var out = [];
+  String(s == null ? '' : s).split(/\r?\n/).forEach(function (par) {
+    var words = par.replace(/\t/g, ' ').split(/\s+/).filter(Boolean);
+    if (!words.length) { out.push(''); return; }
+    var line = '';
+    words.forEach(function (w) {
+      while (strW(w, b, sz) > maxW) {
+        var k = w.length; while (k > 1 && strW(w.slice(0, k), b, sz) > maxW) k--;
+        if (line) { out.push(line); line = ''; }
+        out.push(w.slice(0, k)); w = w.slice(k);
+      }
+      var t = line ? line + ' ' + w : w;
+      if (strW(t, b, sz) <= maxW) line = t; else { out.push(line); line = w; }
+    });
+    if (line) out.push(line);
+  });
+  return out.length ? out : [''];
+}
+var f2 = function (n) { return String(Math.round(n * 100) / 100); };
+function Pdf() { this.pages = []; this.imgs = []; this.p = null; }
+Pdf.prototype.page = function () { this.p = { ops: [], im: {}, links: [] }; this.pages.push(this.p); return this.p; };
+Pdf.prototype.text = function (x, y, s, o) {
+  o = o || {}; var c = o.color || TX;
+  this.p.ops.push('BT /' + (o.bold ? 'F2' : 'F1') + ' ' + (o.size || 10) + ' Tf ' + c.map(f2).join(' ') + ' rg ' + f2(x) + ' ' + f2(PH - y) + ' Td ' + pdfStr(s) + ' Tj ET');
+};
+Pdf.prototype.rect = function (x, y, w, h, fill, stroke) {
+  var k = [];
+  if (fill) k.push(fill.map(f2).join(' ') + ' rg');
+  if (stroke) k.push(stroke.map(f2).join(' ') + ' RG 0.5 w');
+  k.push(f2(x) + ' ' + f2(PH - y - h) + ' ' + f2(w) + ' ' + f2(h) + ' re ' + (fill && stroke ? 'B' : fill ? 'f' : 'S'));
+  this.p.ops.push(k.join(' '));
+};
+Pdf.prototype.line = function (x1, y1, x2, y2, c, lw) { this.p.ops.push(c.map(f2).join(' ') + ' RG ' + (lw || 0.5) + ' w ' + f2(x1) + ' ' + f2(PH - y1) + ' m ' + f2(x2) + ' ' + f2(PH - y2) + ' l S'); };
+Pdf.prototype.image = function (i, x, y, w, h) { this.p.im['Im' + i] = i; this.p.ops.push('q ' + f2(w) + ' 0 0 ' + f2(h) + ' ' + f2(x) + ' ' + f2(PH - y - h) + ' cm /Im' + i + ' Do Q'); };
+Pdf.prototype.link = function (x, y, w, h, url) { this.p.links.push([x, PH - y - h, x + w, PH - y, url]); };
+Pdf.prototype.addImage = function (bytes, w, h) { this.imgs.push({ bytes: bytes, w: w, h: h }); return this.imgs.length - 1; };
+Pdf.prototype.build = function (title) {
+  var parts = [], off = 0, offs = [];
+  function put(d) { if (typeof d === 'string') { var u = new Uint8Array(d.length); for (var i = 0; i < d.length; i++) u[i] = d.charCodeAt(i) & 255; d = u; } parts.push(d); off += d.length; }
+  function begin(n) { offs[n] = off; put(n + ' 0 obj\n'); }
+  function end() { put('\nendobj\n'); }
+  var nImg = this.imgs.length, base = 5 + nImg, np = this.pages.length;
+  var pageNum = function (i) { return base + 2 * i + 1; }, contNum = function (i) { return base + 2 * i; };
+  put('%PDF-1.4\n'); put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
+  begin(1); put('<< /Type /Catalog /Pages 2 0 R >>'); end();
+  begin(2); put('<< /Type /Pages /Count ' + np + ' /Kids [' + this.pages.map(function (_, i) { return pageNum(i) + ' 0 R'; }).join(' ') + '] >>'); end();
+  begin(3); put('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'); end();
+  begin(4); put('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'); end();
+  this.imgs.forEach(function (im, i) {
+    begin(5 + i);
+    put('<< /Type /XObject /Subtype /Image /Width ' + im.w + ' /Height ' + im.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + im.bytes.length + ' >>\nstream\n');
+    put(im.bytes); put('\nendstream'); end();
+  });
+  this.pages.forEach(function (pg, i) {
+    var cs = pg.ops.join('\n');
+    begin(contNum(i)); put('<< /Length ' + cs.length + ' >>\nstream\n'); put(cs); put('\nendstream'); end();
+    var xo = Object.keys(pg.im).map(function (k) { return '/' + k + ' ' + (5 + pg.im[k]) + ' 0 R'; }).join(' ');
+    var an = pg.links.map(function (l) { return '<< /Type /Annot /Subtype /Link /Rect [' + l.slice(0, 4).map(f2).join(' ') + '] /Border [0 0 0] /A << /S /URI /URI ' + pdfStr(l[4]) + ' >> >>'; }).join(' ');
+    begin(pageNum(i));
+    put('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + f2(PW) + ' ' + f2(PH) + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << ' + xo + ' >> >> /Contents ' + contNum(i) + ' 0 R' + (an ? ' /Annots [' + an + ']' : '') + ' >>');
+    end();
+  });
+  var info = base + 2 * np;
+  begin(info); put('<< /Title ' + pdfStr(title) + ' /Producer (Gestion Vial - Lanus) >>'); end();
+  var xr = off, total = info + 1;
+  put('xref\n0 ' + total + '\n0000000000 65535 f \n');
+  for (var n = 1; n < total; n++) put(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
+  put('trailer\n<< /Size ' + total + ' /Root 1 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + xr + '\n%%EOF');
+  return new Blob(parts, { type: 'application/pdf' });
+};
+
+function cargarLogo() {
+  return new Promise(function (res) {
+    var im = new Image();
+    im.onload = function () {
+      try {
+        var k = Math.min(1, 400 / im.naturalWidth), w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k);
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+        c.toBlob(function (b) { if (!b) return res(null); b.arrayBuffer().then(function (ab) { res({ bytes: new Uint8Array(ab), w: w, h: h }); }); }, 'image/jpeg', 0.92);
+      } catch (e) { res(null); }
+    };
+    im.onerror = function () { res(null); };
+    im.src = 'logo-lanus.png';
+  });
+}
+
+function armarPdf(w) {
+  var pts = w.puntos, doc = new Pdf(), idx = {}, logo = null, logoIdx = null, now = Date.now();
+  var T = 'PEDIDO DE REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA';
+  var semana = 'Semana del ' + dm(w.desde) + ' al ' + dmy(w.hasta);
+  var cf = pts.filter(function (p) { return p.foto; }).length;
+  return cargarLogo().then(function (lg) {
+    logo = lg; if (lg) logoIdx = doc.addImage(lg.bytes, lg.w, lg.h);
+    return pts.reduce(function (pr, p) {
+      return pr.then(function () {
+        if (!p.foto || !p.fw || !p.fh) return;
+        return fGet(p.id).then(function (b) { if (!b) return; return b.arrayBuffer().then(function (ab) { idx[p.id] = doc.addImage(new Uint8Array(ab), p.fw, p.fh); }); });
+      });
+    }, Promise.resolve());
+  }).then(function () {
+    var y = 84;
+    doc.page();
+    var tl = wrap(T, true, 13, CW);
+    tl.forEach(function (l, i) { doc.text(M, y + i * 17, l, { size: 13, bold: true, color: AZ }); });
+    y += tl.length * 17;
+    doc.text(M, y + 2, semana, { size: 11, bold: true }); y += 20;
+    doc.rect(M, y, CW, 44, BAND, LN);
+    doc.text(M + 10, y + 17, 'Emitido: ' + dmy(now) + ' ' + hm(now), { size: 9.5 });
+    doc.text(M + 10, y + 33, 'Total de puntos: ' + pts.length + '   ·   Con foto: ' + cf + '   ·   Sin foto: ' + (pts.length - cf), { size: 9.5, bold: true });
+    y += 62;
+
+    var cols = [['N°', 28], ['Dirección', 178], ['Observación', 190], ['Cargado', 68], ['Foto', 51]], fs = 9, ld = 11.5, pd = 4;
+    function encab() {
+      doc.rect(M, y, CW, 20, AZ, AZ); var x = M;
+      cols.forEach(function (c) { doc.text(x + pd, y + 13.5, c[0], { size: 9, bold: true, color: [1, 1, 1] }); x += c[1]; });
+      y += 20;
+    }
+    encab();
+    pts.forEach(function (p, i) {
+      var dl = wrap(p.dir, true, fs, cols[1][1] - 2 * pd), ol = wrap(p.obs || '—', false, fs, cols[2][1] - 2 * pd);
+      var h = Math.max(dl.length, ol.length, 1) * ld + 2 * pd;
+      if (y + h > BOT) { doc.page(); y = TOP; encab(); }
+      if (i % 2) doc.rect(M, y, CW, h, BAND2);
+      doc.rect(M, y, CW, h, null, LN);
+      var x = M; cols.forEach(function (c, k) { if (k) doc.line(x, y, x, y + h, LN, 0.5); x += c[1]; });
+      var cx = M;
+      doc.text(cx + pd, y + pd + fs, String(i + 1), { size: fs }); cx += cols[0][1];
+      dl.forEach(function (l, k) { doc.text(cx + pd, y + pd + fs + k * ld, l, { size: fs, bold: true }); }); cx += cols[1][1];
+      ol.forEach(function (l, k) { doc.text(cx + pd, y + pd + fs + k * ld, l, { size: fs }); }); cx += cols[2][1];
+      doc.text(cx + pd, y + pd + fs, dia(p.ts) + ' ' + dm(p.ts), { size: fs }); cx += cols[3][1];
+      doc.text(cx + pd, y + pd + fs, p.foto ? 'Sí' : 'No', { size: fs, bold: true, color: p.foto ? [0.1, 0.5, 0.3] : GR });
+      y += h;
+    });
+
+    doc.page(); y = TOP;
+    doc.text(M, y + 10, 'Detalle por punto', { size: 13, bold: true, color: AZ }); y += 30;
+    pts.forEach(function (p, i) {
+      var tl2 = wrap((i + 1) + '. ' + p.dir, true, 11, CW - 20), bandH = tl2.length * 14 + 10;
+      var ol = p.obs ? wrap(p.obs, false, 10, CW) : [];
+      var meta = ['Cargado: ' + dia(p.ts) + ' ' + dmy(p.ts) + ' ' + hm(p.ts)];
+      if (p.lat != null) meta.push('Ubicación GPS: ' + p.lat + ', ' + p.lng);
+      var im = idx[p.id], pw = 0, ph = 0;
+      if (im != null) { var k = Math.min(340 / p.fw, 220 / p.fh); pw = p.fw * k; ph = p.fh * k; }
+      var hTot = bandH + 10 + (ol.length ? 12 + ol.length * 13 + 4 : 0) + meta.length * 13 + (p.lat != null ? 14 : 0) + 6 + (im != null ? ph : 16) + 22;
+      if (y + hTot > BOT && y > TOP + 40) { doc.page(); y = TOP; }
+      doc.rect(M, y, CW, bandH, BAND, LN);
+      tl2.forEach(function (l, k2) { doc.text(M + 10, y + 15 + k2 * 14, l, { size: 11, bold: true, color: AZ2 }); });
+      y += bandH + 10;
+      if (ol.length) {
+        doc.text(M, y + 8, 'Observación', { size: 8.5, bold: true, color: GR }); y += 12;
+        ol.forEach(function (l, k3) { doc.text(M, y + 9 + k3 * 13, l, { size: 10 }); });
+        y += ol.length * 13 + 4;
+      }
+      meta.forEach(function (m) { doc.text(M, y + 9, m, { size: 9.5, color: GR }); y += 13; });
+      if (p.lat != null) {
+        var lt = 'Ver ubicación en Google Maps', lw = strW(lt, false, 9.5);
+        doc.text(M, y + 9, lt, { size: 9.5, color: AZ });
+        doc.line(M, y + 11, M + lw, y + 11, AZ, 0.5);
+        doc.link(M, y, lw, 13, 'https://maps.google.com/?q=' + p.lat + ',' + p.lng);
+        y += 14;
+      }
+      y += 6;
+      if (im != null) { doc.image(im, M, y, pw, ph); doc.rect(M, y, pw, ph, null, LN); y += ph; }
+      else { doc.text(M, y + 10, 'Sin foto', { size: 9.5, color: GR }); y += 16; }
+      y += 22;
+    });
+
+    var n = doc.pages.length;
+    doc.pages.forEach(function (pg, i) {
+      doc.p = pg;
+      var tx = M;
+      if (logoIdx != null) { var lh = 34, lw2 = Math.min(logo.w * lh / logo.h, 120); doc.image(logoIdx, M, 16, lw2, lh); tx = M + lw2 + 10; }
+      doc.text(tx, 32, 'MUNICIPALIDAD DE LANÚS', { size: 11, bold: true, color: AZ2 });
+      doc.text(tx, 45, 'Dirección de Ejecución en Red Vial', { size: 9, color: GR });
+      doc.line(M, 58, PW - M, 58, AZ, 1.5);
+      doc.line(M, PH - 44, PW - M, PH - 44, LN, 0.5);
+      doc.text(M, PH - 30, 'Pedido de remoción de escombros y residuos de obra · ' + semana, { size: 8, color: GR });
+      var pgt = 'Página ' + (i + 1) + ' de ' + n;
+      doc.text(PW - M - strW(pgt, false, 8), PH - 30, pgt, { size: 8, color: GR });
+    });
+    return doc.build('Pedido de remoción de escombros y residuos de obra - ' + semana);
+  });
+}
+
+/* ---------- envío ---------- */
+var envio = null;
+function prepararArchivos(w) {
+  return armarPdf(w).then(function (blob) {
+    var base = 'Remocion_escombros_' + iso(w.desde) + '_al_' + iso(w.hasta);
+    var pdf = new File([blob], base + '.pdf', { type: 'application/pdf' }), files = [];
+    return w.puntos.reduce(function (pr, p, i) {
+      return pr.then(function () {
+        if (!p.foto) return;
+        return fGet(p.id).then(function (b) { if (b) files.push(new File([b], (i + 1) + '_' + slug(p.dir) + '.jpg', { type: 'image/jpeg' })); });
+      });
+    }, Promise.resolve()).then(function () { return { pdf: pdf, files: files }; });
+  });
+}
+function abrirEnvio(w, archivoId) {
+  var e = envio = { w: w, archivoId: archivoId || null, ready: false, pdf: null, files: [], err: null };
+  $('sTit').textContent = 'Enviar semana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + ' (' + w.puntos.length + ')';
+  $('sTexto').value = buildText(w);
+  $('sEst').textContent = 'Preparando PDF y fotos…';
+  $('bArchivar').hidden = !!archivoId;
+  $('bShare').hidden = true; $('sNoShare').hidden = true;
+  $('sheet').hidden = false; $('sheet').scrollTop = 0;
+  e.prep = prepararArchivos(w).then(function (r) { e.pdf = r.pdf; e.files = r.files; e.ready = true; })
+    .catch(function (x) { console.error(x); e.err = x; })
+    .then(function () {
+      if (envio !== e) return;
+      if (e.err) { $('sEst').textContent = 'No se pudo armar el PDF. Podés copiar el texto igual.'; return; }
+      $('sEst').textContent = 'PDF listo (' + Math.max(1, Math.round(e.pdf.size / 1024)) + ' KB) · ' + e.files.length + ' foto' + (e.files.length === 1 ? '' : 's');
+      var can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [e.pdf] }));
+      $('bShare').hidden = !can; $('sNoShare').hidden = can;
+    });
+}
+function cerrarEnvio() { $('sheet').hidden = true; envio = null; }
+function bajar(file) {
+  var u = URL.createObjectURL(file), a = document.createElement('a');
+  a.href = u; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+}
+function copiar() {
+  var t = $('sTexto').value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(t).then(function () { return true; }, function () { return viejaCopia(t); });
+  }
+  return Promise.resolve(viejaCopia(t));
+}
+function viejaCopia(t) {
+  try { var ta = $('sTexto'); ta.focus(); ta.select(); var ok = document.execCommand('copy'); ta.setSelectionRange(0, 0); return ok; } catch (e) { return false; }
+}
+function compartir() {
+  var e = envio; if (!e) return;
+  var go = function () {
+    if (!e.ready) { toast('No se pudo preparar el PDF.', true); return; }
+    var txt = $('sTexto').value, todos = [e.pdf].concat(e.files);
+    var variantes = [{ files: todos, text: txt, title: 'Pedido de remoción de escombros' }, { files: todos }, { files: [e.pdf], text: txt }, { files: [e.pdf] }];
+    var data = null;
+    for (var i = 0; i < variantes.length; i++) { if (navigator.canShare(variantes[i])) { data = variantes[i]; break; } }
+    if (!data) { toast('Este equipo no permite compartir estos archivos. Usá las descargas.', true); return; }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(function () {}); } catch (x) {}
+    navigator.share(data).then(function () {
+      toast('Si WhatsApp no trajo el texto, ya está copiado: pegalo en el mensaje.');
+      if (!e.archivoId && envio === e && confirm('¿Se envió?\n\nAceptar: archivo la semana y arrancás una en blanco.\nCancelar: queda como está.')) archivarActual();
+    }).catch(function (x) { if (!x || x.name !== 'AbortError') { console.error(x); toast('No se pudo compartir. Probá con las descargas.', true); } });
+  };
+  if (e.ready) go(); else e.prep.then(go);
+}
+function archivarActual() {
+  if (!S.actual.length) return;
+  var w = semanaDe(S.actual);
+  S.archivo.unshift({ id: uid(), desde: w.desde, hasta: w.hasta, enviada: Date.now(), puntos: S.actual });
+  S.actual = []; save(); formReset(); cerrarEnvio(); render(); renderArch();
+  toast('Semana archivada. Empezás una nueva.');
+}
+
+/* ---------- eventos ---------- */
+$('bGps').onclick = gps;
+$('bFoto').onclick = function () { $('file').click(); };
+$('lnkGal').onclick = function () { $('file2').click(); };
+['file', 'file2'].forEach(function (id) { $(id).addEventListener('change', function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) onFile(f); }); });
+$('bAgregar').onclick = guardarPunto;
+$('bCancel').onclick = formReset;
+$('qPrev').onclick = quitarFoto;
+$('prevImg').onclick = function () { verUrl($('prevImg').src); };
+$('dir').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('obs').focus(); } });
+$('obs').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); guardarPunto(); } });
+function verUrl(u) { if (!u) return; $('vImg').src = u; $('viewer').hidden = false; }
+$('viewer').onclick = function () { $('viewer').hidden = true; };
+$('lista').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-act]'); if (!b) return;
+  var id = b.dataset.id;
+  if (b.dataset.act === 'edit') editar(id);
+  else if (b.dataset.act === 'del') borrar(id);
+  else if (b.dataset.act === 'ver') urlDe(id).then(verUrl);
+});
+$('arch').addEventListener('click', function (e) {
+  var th = e.target.closest('[data-act="ver"]');
+  if (th) { urlDe(th.dataset.id).then(verUrl); return; }
+  var b = e.target.closest('[data-a]'); if (!b) return;
+  var card = b.closest('[data-wid]'), w = S.archivo.filter(function (x) { return x.id === card.dataset.wid; })[0]; if (!w) return;
+  if (b.dataset.a === 'ver') { var l = card.querySelector('.alist'); l.hidden = !l.hidden; if (!l.hidden) hidratar(l); }
+  else if (b.dataset.a === 'reenviar') abrirEnvio(w, w.id);
+  else if (b.dataset.a === 'borrar') {
+    if (!confirm('¿Borrar esta semana archivada con sus ' + w.puntos.length + ' puntos y fotos?')) return;
+    w.puntos.forEach(function (p) { fDel(p.id); soltarUrl(p.id); });
+    S.archivo = S.archivo.filter(function (x) { return x.id !== w.id; }); save(); render(); renderArch();
+  }
+});
+function tab(n) {
+  var sem = n === 'sem';
+  $('vSem').hidden = !sem; $('vArch').hidden = sem; $('bar').hidden = !sem;
+  $('tabSem').classList.toggle('on', sem); $('tabArch').classList.toggle('on', !sem);
+  if (!sem) { renderArch(); hidratar($('arch')); }
+  window.scrollTo(0, 0);
+}
+$('tabSem').onclick = function () { tab('sem'); };
+$('tabArch').onclick = function () { tab('arch'); };
+$('bEnviar').onclick = function () {
+  if (!S.actual.length) { toast('Todavía no cargaste ningún punto.', true); return; }
+  abrirEnvio(semanaDe(S.actual), null);
+};
+$('bShare').onclick = compartir;
+$('bCopy').onclick = function () { copiar().then(function (ok) { toast(ok ? 'Texto copiado' : 'No se pudo copiar. Seleccionalo y copialo a mano.', !ok); }); };
+$('bPdf').onclick = function () { var e = envio; if (!e) return; (e.ready ? Promise.resolve() : e.prep).then(function () { if (e.pdf) bajar(e.pdf); else toast('No se pudo armar el PDF.', true); }); };
+$('bFotos').onclick = function () {
+  var e = envio; if (!e) return;
+  (e.ready ? Promise.resolve() : e.prep).then(function () {
+    if (!e.files.length) { toast('Ningún punto tiene foto.', true); return; }
+    e.files.forEach(function (f, i) { setTimeout(function () { bajar(f); }, i * 400); });
+  });
+};
+$('bWa').onclick = function () { window.open('https://wa.me/?text=' + encodeURIComponent($('sTexto').value), '_blank'); };
+$('bArchivar').onclick = function () { if (confirm('¿Archivar la semana? Los puntos pasan a "Anteriores" y arrancás una en blanco.')) archivarActual(); };
+$('bCerrar').onclick = cerrarEnvio;
+
+formReset(); render(); renderArch();
+})();
+</script>
+</body>
+</html>

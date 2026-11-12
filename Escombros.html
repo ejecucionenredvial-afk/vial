@@ -98,7 +98,10 @@ input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
     <div class="mut sm" style="margin-bottom:6px">Mensaje (podés editarlo antes de enviar)</div>
     <textarea id="sTexto" rows="11"></textarea>
     <div id="sEst" class="mut sm" style="margin-bottom:10px"></div>
-    <button class="btn p w" id="bShare" type="button"><span data-ico="send"></span><span>Compartir por WhatsApp<small>PDF + fotos + texto</small></span></button>
+    <div id="shareBox" hidden>
+      <button class="btn p w" id="bShareF" type="button"><span data-ico="cam"></span><span>1. Enviar fotos por WhatsApp<small id="sFotosN"></small></span></button>
+      <button class="btn p w" id="bShareP" type="button"><span data-ico="pdf"></span><span>2. Enviar PDF por WhatsApp<small>Detalle de todos los pedidos</small></span></button>
+    </div>
     <div id="sNoShare" class="mut sm" style="margin-bottom:10px" hidden>Este equipo no permite compartir archivos desde acá. Descargá el PDF y las fotos y mandalos desde WhatsApp.</div>
     <div class="row" style="margin-bottom:8px">
       <button class="btn" id="bCopy" type="button"><span data-ico="copy"></span>Copiar texto</button>
@@ -348,7 +351,7 @@ function renderArch() {
 /* ---------- texto del mensaje ---------- */
 function buildText(w) {
   var pts = w.puntos, cf = pts.filter(function (p) { return p.foto; }).length;
-  var t = '*PEDIDO DE REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA*\nSemana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + '\nDirección de Ejecución en Red Vial - Municipalidad de Lanús\n\nTotal: ' + pts.length + ' punto' + (pts.length === 1 ? '' : 's') + ' (' + cf + ' con foto)\n';
+  var t = '*REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA*\nSemana del ' + dm(w.desde) + ' al ' + dmy(w.hasta) + '\nDirección de Ejecución en Red Vial - Municipalidad de Lanús\n\nTotal: ' + pts.length + ' punto' + (pts.length === 1 ? '' : 's') + ' (' + cf + ' con foto)\n';
   pts.forEach(function (p, i) {
     t += '\n' + (i + 1) + '. *' + p.dir + '*\n';
     if (p.obs) t += '   ' + p.obs + '\n';
@@ -456,7 +459,7 @@ function cargarLogo() {
 
 function armarPdf(w) {
   var pts = w.puntos, doc = new Pdf(), idx = {}, logo = null, logoIdx = null, now = Date.now();
-  var T = 'PEDIDO DE REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA';
+  var T = 'REMOCIÓN DE ESCOMBROS Y RESIDUOS DE OBRA';
   var semana = 'Semana del ' + dm(w.desde) + ' al ' + dmy(w.hasta);
   var cf = pts.filter(function (p) { return p.foto; }).length;
   return cargarLogo().then(function (lg) {
@@ -544,11 +547,11 @@ function armarPdf(w) {
       doc.text(tx, 45, 'Dirección de Ejecución en Red Vial', { size: 9, color: GR });
       doc.line(M, 58, PW - M, 58, AZ, 1.5);
       doc.line(M, PH - 44, PW - M, PH - 44, LN, 0.5);
-      doc.text(M, PH - 30, 'Pedido de remoción de escombros y residuos de obra · ' + semana, { size: 8, color: GR });
+      doc.text(M, PH - 30, 'Remoción de escombros y residuos de obra · ' + semana, { size: 8, color: GR });
       var pgt = 'Página ' + (i + 1) + ' de ' + n;
       doc.text(PW - M - strW(pgt, false, 8), PH - 30, pgt, { size: 8, color: GR });
     });
-    return doc.build('Pedido de remoción de escombros y residuos de obra - ' + semana);
+    return doc.build('Remoción de escombros y residuos de obra - ' + semana);
   });
 }
 
@@ -572,7 +575,7 @@ function abrirEnvio(w, archivoId) {
   $('sTexto').value = buildText(w);
   $('sEst').textContent = 'Preparando PDF y fotos…';
   $('bArchivar').hidden = !!archivoId;
-  $('bShare').hidden = true; $('sNoShare').hidden = true;
+  $('shareBox').hidden = true; $('sNoShare').hidden = true;
   $('sheet').hidden = false; $('sheet').scrollTop = 0;
   e.prep = prepararArchivos(w).then(function (r) { e.pdf = r.pdf; e.files = r.files; e.ready = true; })
     .catch(function (x) { console.error(x); e.err = x; })
@@ -581,7 +584,10 @@ function abrirEnvio(w, archivoId) {
       if (e.err) { $('sEst').textContent = 'No se pudo armar el PDF. Podés copiar el texto igual.'; return; }
       $('sEst').textContent = 'PDF listo (' + Math.max(1, Math.round(e.pdf.size / 1024)) + ' KB) · ' + e.files.length + ' foto' + (e.files.length === 1 ? '' : 's');
       var can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [e.pdf] }));
-      $('bShare').hidden = !can; $('sNoShare').hidden = can;
+      var canF = can && e.files.length > 0 && navigator.canShare({ files: e.files });
+      $('shareBox').hidden = !can; $('sNoShare').hidden = can;
+      $('bShareF').hidden = !canF;
+      $('sFotosN').textContent = e.files.length + ' foto' + (e.files.length === 1 ? '' : 's') + ' con el texto de los puntos';
     });
 }
 function cerrarEnvio() { $('sheet').hidden = true; envio = null; }
@@ -600,19 +606,19 @@ function copiar() {
 function viejaCopia(t) {
   try { var ta = $('sTexto'); ta.focus(); ta.select(); var ok = document.execCommand('copy'); ta.setSelectionRange(0, 0); return ok; } catch (e) { return false; }
 }
-function compartir() {
+function compartir(kind) {
   var e = envio; if (!e) return;
   var go = function () {
     if (!e.ready) { toast('No se pudo preparar el PDF.', true); return; }
-    var txt = $('sTexto').value, todos = [e.pdf].concat(e.files);
-    var variantes = [{ files: todos, text: txt, title: 'Pedido de remoción de escombros' }, { files: todos }, { files: [e.pdf], text: txt }, { files: [e.pdf] }];
-    var data = null;
-    for (var i = 0; i < variantes.length; i++) { if (navigator.canShare(variantes[i])) { data = variantes[i]; break; } }
-    if (!data) { toast('Este equipo no permite compartir estos archivos. Usá las descargas.', true); return; }
-    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(function () {}); } catch (x) {}
+    var txt = $('sTexto').value, data = null, i;
+    var variantes = kind === 'pdf'
+      ? [{ files: [e.pdf], title: 'Remoción de escombros y residuos de obra' }]
+      : [{ files: e.files, text: txt }, { files: e.files }];
+    for (i = 0; i < variantes.length; i++) { if (navigator.canShare(variantes[i])) { data = variantes[i]; break; } }
+    if (!data) { toast('No se pudo compartir así. Usá las descargas o copiá el texto.', true); return; }
+    if (kind !== 'pdf') { try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(function () {}); } catch (x) {} }
     navigator.share(data).then(function () {
-      toast('Si WhatsApp no trajo el texto, ya está copiado: pegalo en el mensaje.');
-      if (!e.archivoId && envio === e && confirm('¿Se envió?\n\nAceptar: archivo la semana y arrancás una en blanco.\nCancelar: queda como está.')) archivarActual();
+      toast(kind === 'pdf' ? 'Listo. Falta archivar la semana cuando termines.' : 'Si WhatsApp no trajo el texto, ya está copiado: pegalo en el mensaje.');
     }).catch(function (x) { if (!x || x.name !== 'AbortError') { console.error(x); toast('No se pudo compartir. Probá con las descargas.', true); } });
   };
   if (e.ready) go(); else e.prep.then(go);
@@ -671,7 +677,8 @@ $('bEnviar').onclick = function () {
   if (!S.actual.length) { toast('Todavía no cargaste ningún punto.', true); return; }
   abrirEnvio(semanaDe(S.actual), null);
 };
-$('bShare').onclick = compartir;
+$('bShareF').onclick = function () { compartir('fotos'); };
+$('bShareP').onclick = function () { compartir('pdf'); };
 $('bCopy').onclick = function () { copiar().then(function (ok) { toast(ok ? 'Texto copiado' : 'No se pudo copiar. Seleccionalo y copialo a mano.', !ok); }); };
 $('bPdf').onclick = function () { var e = envio; if (!e) return; (e.ready ? Promise.resolve() : e.prep).then(function () { if (e.pdf) bajar(e.pdf); else toast('No se pudo armar el PDF.', true); }); };
 $('bFotos').onclick = function () {

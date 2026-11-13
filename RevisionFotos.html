@@ -73,6 +73,10 @@
   .meta { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
   .meta a { color: var(--cyan-d); }
   .meta button { border: 0; background: none; color: var(--cyan-d); cursor: pointer; text-decoration: underline; padding: 0; font-size: 12px; }
+  .rot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .rot > span { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+  .rot button { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .rot button:hover { border-color: var(--cyan-d); }
   .acts { display: flex; gap: 8px; }
   .acts .btn { flex: 1; }
   .acts .btn.primary { flex: 2; }
@@ -118,7 +122,10 @@
     <select id="bMom" aria-label="Momento para las elegidas"><option value="">Momento…</option><option>Antes</option><option>Después</option></select>
     <input type="date" id="bFecha" aria-label="Fecha para las elegidas">
     <button class="btn" id="bApply" type="button" disabled>Aplicar a elegidas</button>
+    <button class="btn" id="bRotL" type="button" title="Girar la foto de las elegidas a la izquierda" disabled>↺ Girar</button>
+    <button class="btn" id="bRotR" type="button" title="Girar la foto de las elegidas a la derecha" disabled>Girar ↻</button>
     <span class="grow"></span>
+    <button class="btn" id="bFlyer" type="button" aria-pressed="true" title="Cambia el estilo del flyer en todas las fotos"></button>
     <button class="btn primary" id="bSend" type="button" disabled>Enviar elegidas al SAT 2.0</button>
   </section>
 
@@ -217,45 +224,101 @@ function wrap(ctx, text, maxW) {
   words.forEach((w) => { const t = line ? line + " " + w : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
   if (line) out.push(line); return out;
 }
-function drawStamp(cv, src, sh, maxDim) {
-  const nw = src.naturalWidth, nh = src.naturalHeight;
-  const k = Math.min(1, maxDim / Math.max(nw, nh));
-  const w = Math.round(nw * k), h = Math.round(nh * k);
+let compact = true;   /* flyer compacto (por defecto) o normal */
+try { compact = localStorage.getItem("central-flyer-v1") !== "normal"; } catch (e) { /* ignorar */ }
+/* Flyer de etiquetas: logo + fecha arriba a la izquierda y dirección abajo a la izquierda, sin franjas */
+function rrect(x, a, b, w, h, r) {
+  x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath();
+}
+function chips(x, w, h, sh, hasLogo) {
+  const u = Math.max(11, Math.round(Math.min(w, h) * 0.022)), g = Math.round(u * 1.1);
+  x.textBaseline = "middle"; x.textAlign = "left";
+  /* arriba: logo + fecha */
+  x.font = "700 " + Math.round(u * 1.05) + "px " + FONT;
+  const dw = x.measureText(fmtDate(sh.when)).width;
+  const lh = Math.round(u * 2.1), lw = hasLogo ? Math.round(logoImg.naturalWidth * lh / logoImg.naturalHeight) : 0;
+  const cw = lw + dw + u * (hasLogo ? 3 : 1.6), chh = lh + u * 0.8;
+  x.fillStyle = "rgba(255,255,255,0.9)"; rrect(x, g, g, cw, chh, u * 0.7); x.fill();
+  if (hasLogo) x.drawImage(logoImg, g + u * 0.8, g + u * 0.4, lw, lh);
+  x.fillStyle = "#2b3037"; x.fillText(fmtDate(sh.when), g + u * (hasLogo ? 1.6 : 0.8) + lw, g + chh / 2 + 1);
+  /* abajo: dirección (o coordenadas) y, si corresponde, aviso de ubicación vieja */
+  const lines = [];
+  const fsA = Math.round(u * 1.25), maxW = w - g * 2 - u * 2.4;
+  x.font = "700 " + fsA + "px " + FONT;
+  const txt = sh.address || (sh.pos ? sh.pos.lat.toFixed(6) + ", " + sh.pos.lon.toFixed(6) : "Ubicación no disponible");
+  wrap(x, txt, maxW).forEach((t) => lines.push({ t, px: fsA, w: 700, c: "#fff" }));
+  if (sh.pos && sh.pos.t && sh.when.getTime() - sh.pos.t > FRESH) lines.push({ t: "Última ubicación conocida · hace " + ago(sh.when.getTime() - sh.pos.t), px: Math.round(u * 0.95), w: 400, c: "#f5d98a" });
+  let aw = 0, ah = u * 1.2;
+  lines.forEach((l) => { x.font = l.w + " " + l.px + "px " + FONT; aw = Math.max(aw, x.measureText(l.t).width); ah += l.px * 1.3; });
+  const top = h - g - ah;
+  x.fillStyle = "rgba(31,36,42,0.72)"; rrect(x, g, top, aw + u * 2.4, ah, u * 0.7); x.fill();
+  x.fillStyle = "#12a1c4"; rrect(x, g, top, u * 0.5, ah, u * 0.25); x.fill();
+  let y = top + u * 0.6;
+  lines.forEach((l) => { x.font = l.w + " " + l.px + "px " + FONT; x.fillStyle = l.c; x.fillText(l.t, g + u * 1.3, y + l.px * 0.65); y += l.px * 1.3; });
+}
+/* Gira una imagen en múltiplos de 90° (q = 0..3, sentido horario) */
+function rotar(img, q) {
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  q = ((q % 4) + 4) % 4;
+  if (!q) return { el: img, w, h };
+  const c = document.createElement("canvas");
+  c.width = q % 2 ? h : w; c.height = q % 2 ? w : h;
+  const x = c.getContext("2d");
+  x.translate(c.width / 2, c.height / 2); x.rotate(q * Math.PI / 2); x.drawImage(img, -w / 2, -h / 2);
+  return { el: c, w: c.width, h: c.height };
+}
+/* sh: {when,pos,address,rotFoto,rotTodo}. La foto se gira primero y el flyer se arma sobre la foto ya girada;
+   rotTodo gira después la imagen completa (foto + flyer) */
+function drawStamp(cv, img, sh, maxDim) {
+  const src = rotar(img, sh.rotFoto || 0);
+  const k = Math.min(1, maxDim / Math.max(src.w, src.h));
+  const w = Math.round(src.w * k), h = Math.round(src.h * k);
   const hasLogo = logoImg.complete && logoImg.naturalWidth > 0;
-  const bandH = hasLogo ? Math.round(Math.min(w, h) * 0.16) : 0;
-  cv.width = w; cv.height = h + bandH;
-  const ctx = cv.getContext("2d");
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.drawImage(src, 0, bandH, w, h);
-  if (hasLogo) {
-    const lh = Math.round(bandH * 0.70), lw = Math.round(logoImg.naturalWidth * lh / logoImg.naturalHeight);
+  const bandH = hasLogo && !compact ? Math.round(Math.min(w, h) * 0.16) : 0;
+  const out = (sh.rotTodo || 0) % 2 ? document.createElement("canvas") : cv;
+  out.width = w; out.height = h + bandH;
+  const ctx = out.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(src.el, 0, bandH, w, h);
+  if (hasLogo && !compact) {
+    const lh = Math.round(bandH * 0.72), lw = Math.round(logoImg.naturalWidth * lh / logoImg.naturalHeight);
     const m = Math.round((bandH - lh) / 2);
     ctx.drawImage(logoImg, m + Math.round(bandH * 0.08), m, lw, lh);
     ctx.fillStyle = "#12a1c4";
-    ctx.fillRect(0, bandH - Math.max(3, Math.round(bandH * 0.04)), w, Math.max(3, Math.round(bandH * 0.04)));
-    ctx.font = "700 " + Math.round(bandH * 0.34) + "px " + FONT;
+    const ln = Math.max(2, Math.round(bandH * (compact ? 0.05 : 0.04)));
+    ctx.fillRect(0, bandH - ln, w, ln);
+    ctx.font = "700 " + Math.round(bandH * (compact ? 0.38 : 0.34)) + "px " + FONT;
     ctx.fillStyle = "#2b3037"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
     ctx.fillText(fmtDate(sh.when), w - Math.round(bandH * 0.22), Math.round(bandH * 0.48));
     ctx.textAlign = "left";
   }
   ctx.textBaseline = "top";
-  const fs = Math.max(15, Math.round(Math.min(w, h) * 0.034));
-  const pad = Math.round(fs * 0.75), maxW = w - pad * 2, rows = [];
+  if (compact) { chips(ctx, w, h, sh, hasLogo); } else {
+  const fs = Math.max(compact ? 12 : 15, Math.round(Math.min(w, h) * (compact ? 0.022 : 0.034)));
+  const pad = Math.round(fs * (compact ? 0.6 : 0.75)), maxW = w - pad * 2, rows = [];
   const add = (text, size, weight, color, gap) => {
     const px = Math.round(fs * size); ctx.font = weight + " " + px + "px " + FONT;
     wrap(ctx, text, maxW).forEach((t) => rows.push({ t, px, w: weight, c: color, gap: 0 }));
     if (gap && rows.length) rows[rows.length - 1].gap = Math.round(fs * gap);
   };
-  add("MUNICIPALIDAD DE LANÚS", 0.72, 700, "#7fd3e8", 0.25);
-  if (sh.address) add(sh.address, 1.15, 700, "#fff", 0);
-  else add(sh.pos ? sh.pos.lat.toFixed(6) + ", " + sh.pos.lon.toFixed(6) : "Ubicación no disponible", 1.0, 700, "#fff", 0);
+  if (!compact) add("MUNICIPALIDAD DE LANÚS", 0.72, 700, "#7fd3e8", 0.25);
+  const big = compact ? 1.0 : 1.15;
+  if (sh.address) add(sh.address, big, 700, "#fff", 0);
+  else add(sh.pos ? sh.pos.lat.toFixed(6) + ", " + sh.pos.lon.toFixed(6) : "Ubicación no disponible", big, 700, "#fff", 0);
   if (sh.pos && sh.pos.t && sh.when.getTime() - sh.pos.t > FRESH) add("Última ubicación conocida · hace " + ago(sh.when.getTime() - sh.pos.t), 0.8, 400, "#f5d98a", 0);
-  let total = 0; rows.forEach((r) => { total += Math.round(r.px * 1.3) + r.gap; });
-  const accent = Math.max(4, Math.round(fs * 0.22)), panelH = total + pad * 2 + accent, top = cv.height - panelH;
-  ctx.fillStyle = "rgba(31,36,42,0.88)"; ctx.fillRect(0, top, w, panelH);
+  let total = 0; rows.forEach((r) => { total += Math.round(r.px * 1.25) + r.gap; });
+  const accent = Math.max(compact ? 2 : 4, Math.round(fs * (compact ? 0.1 : 0.22))), panelH = total + pad * 2 + accent, top = out.height - panelH;
+  ctx.fillStyle = compact ? "rgba(31,36,42,0.68)" : "rgba(31,36,42,0.88)"; ctx.fillRect(0, top, w, panelH);
   ctx.fillStyle = "#12a1c4"; ctx.fillRect(0, top, w, accent);
   let y = top + accent + pad;
-  rows.forEach((r) => { ctx.font = r.w + " " + r.px + "px " + FONT; ctx.fillStyle = r.c; ctx.fillText(r.t, pad, y); y += Math.round(r.px * 1.3) + r.gap; });
+  rows.forEach((r) => { ctx.font = r.w + " " + r.px + "px " + FONT; ctx.fillStyle = r.c; ctx.fillText(r.t, pad, y); y += Math.round(r.px * 1.25) + r.gap; });
+  }
+  if (out !== cv) {
+    const q = sh.rotTodo % 4;
+    cv.width = q % 2 ? out.height : out.width; cv.height = q % 2 ? out.width : out.height;
+    const x = cv.getContext("2d");
+    x.translate(cv.width / 2, cv.height / 2); x.rotate(q * Math.PI / 2); x.drawImage(out, -out.width / 2, -out.height / 2);
+  }
 }
 
 /* ───────── Avisos ───────── */
@@ -288,10 +351,11 @@ function updateCount() {
 function updateSel() {
   const sel = [...items.values()].filter((i) => i.sel);
   $("selInfo").textContent = sel.length ? sel.length + (sel.length === 1 ? " elegida" : " elegidas") : "Elegí fotos para aplicar cambios juntas";
-  $("bApply").disabled = !sel.length; $("bSend").disabled = !sel.length;
+  $("bApply").disabled = !sel.length; $("bSend").disabled = !sel.length; $("bRotL").disabled = !sel.length; $("bRotR").disabled = !sel.length;
   $("all").checked = items.size > 0 && sel.length === items.size;
 }
-function renderThumb(it) { drawStamp(it.canvas, it.img, { when: new Date(it.takenAt), pos: it.pos, address: it.direccion.trim() }, 640); }
+function stampOf(it) { return { when: new Date(it.takenAt), pos: it.pos, address: it.direccion.trim(), rotFoto: it.rotFoto, rotTodo: it.rotTodo }; }
+function renderThumb(it) { drawStamp(it.canvas, it.img, stampOf(it), 640); }
 function paintHint(it) {
   const c = corta(it.direccion), k = norm(c);
   if (!k) { it.hint.hidden = true; return; }
@@ -321,7 +385,7 @@ function addCard(id, d) {
   if (items.has(id)) return;
   const when = new Date(d.takenAt || Date.now());
   const it = {
-    id, takenAt: d.takenAt || Date.now(), direccion: d.address || "", tipo: "", momento: "", fecha: isoDay(when), sel: false,
+    id, takenAt: d.takenAt || Date.now(), direccion: d.address || "", rotFoto: 0, rotTodo: 0, tipo: "", momento: "", fecha: isoDay(when), sel: false,
     pos: d.lat != null ? { lat: d.lat, lon: d.lon, acc: d.acc, t: d.posT } : null, uid: d.uid || ""
   };
   const img = new Image();
@@ -356,6 +420,12 @@ function addCard(id, d) {
     b.addEventListener("click", () => setMomento(it, m)); it.seg.appendChild(b);
   });
 
+  const rot = el("div", { class: "rot", role: "group", "aria-label": "Girar" }, [el("span", { text: "Girar" })]);
+  const rbtn = (txt, tit, fn) => { const b = el("button", { type: "button", title: tit, "aria-label": tit, text: txt }); b.addEventListener("click", fn); rot.appendChild(b); };
+  rbtn("↺ Foto", "Girar la foto a la izquierda (el flyer queda derecho)", () => girar(it, "rotFoto", -1));
+  rbtn("Foto ↻", "Girar la foto a la derecha (el flyer queda derecho)", () => girar(it, "rotFoto", 1));
+  rbtn("↺ Todo", "Girar foto y flyer a la izquierda", () => girar(it, "rotTodo", -1));
+  rbtn("Todo ↻", "Girar foto y flyer a la derecha", () => girar(it, "rotTodo", 1));
   const meta = el("div", { class: "meta" }, [el("span", { text: "📷 " + fmtDate(when) + " " + p2(when.getHours()) + ":" + p2(when.getMinutes()) })]);
   if (it.pos) {
     meta.appendChild(el("a", { href: "https://www.google.com/maps?q=" + it.pos.lat + "," + it.pos.lon, target: "_blank", rel: "noopener", text: "Ver en mapa" }));
@@ -374,13 +444,14 @@ function addCard(id, d) {
     field("Dirección", it.inpDir), it.hint,
     el("div", { class: "row3" }, [field("Tipo de trabajo", it.selTipo), field("Fecha del trabajo", it.inpFecha)]),
     el("div", { class: "f" }, [el("span", { text: "Momento" }), it.seg]),
-    meta, it.cerr, el("div", { class: "acts" }, [bDel, bSend])
+    rot, meta, it.cerr, el("div", { class: "acts" }, [bDel, bSend])
   ])]);
   items.set(id, it);
   $("grid").appendChild(it.card);
   paintHint(it);
   updateCount();
 }
+function girar(it, cual, d) { it[cual] = (it[cual] + d + 4) % 4; if (it.img) renderThumb(it); }
 function setMomento(it, m) {
   it.momento = m; it.seg.classList.remove("err");
   [...it.seg.children].forEach((b) => b.setAttribute("aria-pressed", b.textContent === m ? "true" : "false"));
@@ -407,7 +478,7 @@ async function rebuscar(it, btn) {
 /* Vista grande */
 function openViewer(it) {
   if (!it.img) return;
-  drawStamp($("vCanvas"), it.img, { when: new Date(it.takenAt), pos: it.pos, address: it.direccion.trim() }, 1400);
+  drawStamp($("vCanvas"), it.img, stampOf(it), 1400);
   $("viewer").hidden = false; $("vClose").focus();
 }
 $("vClose").addEventListener("click", () => { $("viewer").hidden = true; });
@@ -461,7 +532,7 @@ function nombreSat(it) {
 }
 async function procesar(it, token) {
   const cv = document.createElement("canvas");
-  drawStamp(cv, it.img, { when: new Date(it.takenAt), pos: it.pos, address: it.direccion.trim() }, 1600);
+  drawStamp(cv, it.img, stampOf(it), 1600);
   const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.88));
   const nombre = nombreSat(it);
   const res = await subirADrive(blob, nombre, token);
@@ -480,6 +551,15 @@ async function enviarUna(it) {
 }
 
 /* ───────── Lote ───────── */
+const paintFlyer = () => { $("bFlyer").textContent = "Flyer: " + (compact ? "etiquetas" : "completo"); };
+$("bFlyer").addEventListener("click", () => {
+  compact = !compact; paintFlyer();
+  try { localStorage.setItem("central-flyer-v1", compact ? "compacto" : "normal"); } catch (e) { /* ignorar */ }
+  items.forEach((it) => it.img && renderThumb(it));
+});
+paintFlyer();
+$("bRotL").addEventListener("click", () => items.forEach((it) => { if (it.sel) girar(it, "rotFoto", -1); }));
+$("bRotR").addEventListener("click", () => items.forEach((it) => { if (it.sel) girar(it, "rotFoto", 1); }));
 $("all").addEventListener("change", () => {
   items.forEach((it) => { it.sel = $("all").checked; it.pick.checked = it.sel; it.card.classList.toggle("sel", it.sel); });
   updateSel();

@@ -1,6 +1,6 @@
 /* Service worker: la app abre aunque no haya internet (usa la última versión guardada). */
-var CACHE = 'fotos-lanus-v3';
-var FILES = ['./foto-ubicacion.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+var CACHE = 'fotos-lanus-v4';
+var FILES = ['./foto-ubicacion.html', './foto-ubicacion-2.0.html', './foto-ubicacion-3.0.html', './manifest.webmanifest', './manifest-2.0.webmanifest', './manifest-3.0.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) {
     return Promise.all(FILES.map(function (f) { return c.add(f).catch(function () {}); }));

@@ -175,7 +175,7 @@ import {
   signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, serverTimestamp, deleteField
+  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 /* ───────── Configuración (mismos datos que el SAT) ───────── */
@@ -381,16 +381,56 @@ function validar(it, marcar) {
   return falta.length === 0;
 }
 
-function addCard(id, d) {
+/* Carga la foto completa (partes en Firestore o, en fotos viejas, el campo img) */
+function b64ToBlob(b64, mime) {
+  const bin = atob(b64), n = bin.length, u8 = new Uint8Array(n);
+  for (let i = 0; i < n; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: mime || "image/jpeg" });
+}
+function loadImg(blob) {
+  return new Promise((res, rej) => {
+    const u = URL.createObjectURL(blob), i = new Image();
+    i.onload = () => { URL.revokeObjectURL(u); res(i); };
+    i.onerror = () => { URL.revokeObjectURL(u); rej(new Error("imagen")); };
+    i.src = u;
+  });
+}
+/* En pantalla se trabaja con una copia liviana; la foto completa queda como archivo y se usa al enviar */
+function liviana(img, max) {
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+const cargando = new Set();
+async function cargarFoto(id, d) {
+  if (items.has(id) || cargando.has(id)) return;
+  cargando.add(id);
+  try {
+    let b64 = d.img || "";
+    if (!b64 && d.partes) {
+      const snap = await getDocs(collection(db, COL, id, "partes"));
+      const partes = snap.docs.map((x) => x.data()).sort((a, b) => a.n - b.n);
+      if (partes.length < d.partes) throw new Error("faltan partes");
+      b64 = partes.map((x) => x.d).join("");
+    }
+    if (!b64) return;
+    const blob = b64ToBlob(b64, d.mime);
+    const full = await loadImg(blob);
+    addCard(id, d, blob, liviana(full, 1280));
+  } catch (e) { console.warn("No se pudo cargar la foto " + id, e); toast("No se pudo cargar una foto recibida. Recargá la página."); }
+  finally { cargando.delete(id); }
+}
+
+function addCard(id, d, blob, prev) {
   if (items.has(id)) return;
   const when = new Date(d.takenAt || Date.now());
   const it = {
     id, takenAt: d.takenAt || Date.now(), direccion: d.address || "", rotFoto: 0, rotTodo: 0, tipo: "", momento: "", fecha: isoDay(when), sel: false,
     pos: d.lat != null ? { lat: d.lat, lon: d.lon, acc: d.acc, t: d.posT } : null, uid: d.uid || ""
   };
-  const img = new Image();
-  img.onload = () => { it.img = img; renderThumb(it); };
-  img.src = "data:" + (d.mime || "image/jpeg") + ";base64," + d.img;
+  it.blob = blob; it.img = prev;
   it.canvas = el("canvas");
   const pick = el("input", { type: "checkbox", class: "pick", "aria-label": "Elegir esta foto" });
   pick.addEventListener("click", (e) => e.stopPropagation());
@@ -448,6 +488,7 @@ function addCard(id, d) {
   ])]);
   items.set(id, it);
   $("grid").appendChild(it.card);
+  renderThumb(it);
   paintHint(it);
   updateCount();
 }
@@ -476,10 +517,14 @@ async function rebuscar(it, btn) {
 }
 
 /* Vista grande */
-function openViewer(it) {
+async function openViewer(it) {
   if (!it.img) return;
   drawStamp($("vCanvas"), it.img, stampOf(it), 1400);
   $("viewer").hidden = false; $("vClose").focus();
+  try {   /* se reemplaza por la foto completa apenas carga */
+    const full = await loadImg(it.blob);
+    if (!$("viewer").hidden) drawStamp($("vCanvas"), full, stampOf(it), 2400);
+  } catch (e) { /* queda la vista liviana */ }
 }
 $("vClose").addEventListener("click", () => { $("viewer").hidden = true; });
 $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) $("viewer").hidden = true; });
@@ -532,13 +577,17 @@ function nombreSat(it) {
 }
 async function procesar(it, token) {
   const cv = document.createElement("canvas");
-  drawStamp(cv, it.img, stampOf(it), 1600);
-  const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.88));
+  const full = await loadImg(it.blob);          /* foto completa, sin la copia liviana */
+  drawStamp(cv, full, stampOf(it), 4096);
+  const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.93));
   const nombre = nombreSat(it);
   const res = await subirADrive(blob, nombre, token);
   const k = norm(corta(it.direccion)); if (!direcciones.has(k)) direcciones.set(k, corta(it.direccion));
   try {
-    await updateDoc(doc(db, COL, it.id), { estado: "enviada", nombreArchivo: res.name || nombre, driveId: res.id, enviadoPor: currentUser.nombre, enviadoEn: serverTimestamp(), img: deleteField() });
+    await updateDoc(doc(db, COL, it.id), { estado: "enviada", nombreArchivo: res.name || nombre, driveId: res.id, enviadoPor: currentUser.nombre, enviadoEn: serverTimestamp(), img: deleteField(), partes: deleteField() });
+    /* se borran las partes de la foto para no ocupar lugar */
+    const ps = await getDocs(collection(db, COL, it.id, "partes"));
+    await Promise.all(ps.docs.map((x) => deleteDoc(x.ref)));
   } catch (e) { /* ya está en Drive; si falla solo queda marcada pendiente */ console.warn(e); }
   removeCard(it.id);
   fillDirList();
@@ -625,7 +674,7 @@ function escuchar() {
   unsub = onSnapshot(query(collection(db, COL), where("estado", "==", "pendiente")), (snap) => {
     snap.docChanges().forEach((c) => {
       if (c.type === "removed") removeCard(c.doc.id);
-      else if (c.type === "added") { const d = c.doc.data(); if (d.img) addCard(c.doc.id, d); }
+      else if (c.type === "added") { const d = c.doc.data(); if (d.img || d.partes) cargarFoto(c.doc.id, d); }
     });
     updateCount();
   }, (e) => { toast("No se pudieron leer las fotos: " + e.message, null, null, 9000); });

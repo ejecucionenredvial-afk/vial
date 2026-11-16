@@ -371,7 +371,7 @@
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
         audio: false
       });
       video.srcObject = stream;
@@ -737,11 +737,11 @@
 
   function srcToBlob(src) {
     return new Promise(function (res) {
-      var k = Math.min(1, 1920 / Math.max(src.w, src.h));
+      var k = Math.min(1, 4096 / Math.max(src.w, src.h));
       var c = document.createElement('canvas');
       c.width = Math.round(src.w * k); c.height = Math.round(src.h * k);
       c.getContext('2d').drawImage(src.el, 0, 0, c.width, c.height);
-      c.toBlob(res, 'image/jpeg', 0.92);
+      c.toBlob(res, 'image/jpeg', 0.93);
     });
   }
 
@@ -813,32 +813,39 @@
       r.readAsDataURL(blob);
     });
   }
-  /* Firestore admite documentos de hasta 1 MB: se achica la foto (sin sello) hasta que entre */
+  /* La foto se sube casi sin reducir. Como Firestore admite documentos de hasta 1 MB, se parte en pedazos de ~500 KB */
   async function shrinkForUpload(blob) {
+    if (blob.size <= 5000000) return blob;
     var img = await loadBlobImage(blob);
-    var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    var k = Math.min(1, 3600 / Math.max(img.naturalWidth, img.naturalHeight));
     var c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    var b = null;
-    for (var q = 0.8; q >= 0.4; q -= 0.1) {
+    var b = blob;
+    for (var q = 0.88; q >= 0.6; q -= 0.07) {
       b = await new Promise(function (r) { c.toBlob(r, 'image/jpeg', q); });
-      if (b.size < 640000) break;
+      if (b.size <= 5000000) break;
     }
     return b;
   }
+  var PARTE = 700000;
   async function sendItem(it) {
     if (navigator.onLine === false) throw new Error('offline');
-    var fb = await loadFb();
+    var fb = await loadFb(), F = fb.F;
     var b64 = await blobToB64(await shrinkForUpload(it.blob));
+    var n = Math.ceil(b64.length / PARTE);
+    for (var i = 0; i < n; i++) {
+      await withTimeout(F.setDoc(F.doc(fb.db, COL_FOTOS, it.docId, 'partes', String(i).padStart(3, '0')), { n: i, d: b64.slice(i * PARTE, (i + 1) * PARTE) }), 40000);
+    }
     var p = it.pos || {};
     var data = {
-      img: b64, mime: 'image/jpeg', estado: 'pendiente', app: '3.0',
+      partes: n, mime: 'image/jpeg', estado: 'pendiente', app: '3.1',
       lat: p.lat == null ? null : p.lat, lon: p.lon == null ? null : p.lon, acc: p.acc == null ? null : p.acc, posT: p.t || null,
       takenAt: it.when, address: it.addr || '', uid: fb.auth.currentUser.uid,
-      creadoEn: fb.F.serverTimestamp()
+      creadoEn: F.serverTimestamp()
     };
-    await withTimeout(fb.F.setDoc(fb.F.doc(fb.db, COL_FOTOS, it.docId), data), 30000);
+    /* El documento principal se escribe al final: la central lo ve recién cuando ya están todas las partes */
+    await withTimeout(F.setDoc(F.doc(fb.db, COL_FOTOS, it.docId), data), 30000);
   }
 
   var sending = false;
@@ -856,7 +863,7 @@
         toast('Foto enviada a la central ✓');
         flushQueue(false);
         return;
-      } catch (e) { lastErr = e; }
+      } catch (e) { lastErr = e; console.warn('Envío a la central falló:', e); }
       if (qOk) {
         try { await qAdd(it); } catch (e2) { qOk = false; }
       }
@@ -934,15 +941,40 @@
   }
 
   /* Foto desde la cámara en vivo */
-  function shoot() {
+  /* Recorta una imagen al mismo encuadre (proporción) que se veía en la pantalla */
+  function cropToAspect(img, iw, ih, aspect) {
+    var cw = iw, ch = ih;
+    if (iw / ih > aspect) cw = Math.round(ih * aspect); else ch = Math.round(iw / aspect);
+    var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    c.getContext('2d').drawImage(img, Math.round((iw - cw) / 2), Math.round((ih - ch) / 2), cw, ch, 0, 0, cw, ch);
+    return { el: c, w: cw, h: ch };
+  }
+  async function shoot() {
     if (busy || !stream || !video.videoWidth || !gateEl.hidden) return;
     busy = true;
     var when = new Date();
+    var vw = video.videoWidth, vh = video.videoHeight;
     var c = document.createElement('canvas');
-    c.width = video.videoWidth; c.height = video.videoHeight;
+    c.width = vw; c.height = vh;
     c.getContext('2d').drawImage(video, 0, 0);
+    var src = { el: c, w: vw, h: vh };
+    /* Si el video viene en baja resolución, se pide la foto completa al sensor (mucha más calidad) */
+    if (Math.max(vw, vh) < 2500 && window.ImageCapture) {
+      try {
+        var blob = await withTimeout(new ImageCapture(stream.getVideoTracks()[0]).takePhoto(), 3500);
+        var im = await loadBlobImage(blob), iw = im.naturalWidth, ih = im.naturalHeight;
+        if (Math.max(iw, ih) > Math.max(vw, vh) * 1.2) {
+          var rot = (iw >= ih) !== (vw >= vh);
+          if (rot) {
+            var r = document.createElement('canvas'); r.width = ih; r.height = iw;
+            var x = r.getContext('2d'); x.translate(r.width / 2, r.height / 2); x.rotate(Math.PI / 2); x.drawImage(im, -iw / 2, -ih / 2);
+            src = cropToAspect(r, r.width, r.height, vw / vh);
+          } else src = cropToAspect(im, iw, ih, vw / vh);
+        }
+      } catch (e) { /* queda el cuadro del video */ }
+    }
     stopCam();
-    begin({ el: c, w: c.width, h: c.height }, when).then(function () { busy = false; }, function () { busy = false; });
+    begin(src, when).then(function () { busy = false; }, function () { busy = false; });
   }
   shutter.addEventListener('click', shoot);
 
@@ -967,7 +999,7 @@
 
   /* ---------- Enviar por WhatsApp (menú de compartir) ---------- */
   function getBlob() {
-    return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.88); });
+    return new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.92); });
   }
   function messageText() { return shot.address || ''; }
   function saveBlob(blob, name) {

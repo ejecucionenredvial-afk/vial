@@ -1243,9 +1243,10 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
   <div class="modal-box">
     <h3>⚠️ Esta calle ya fue cargada antes</h3>
     <div class="meta" id="dupCalleMsg"></div>
-    <div class="btn-row">
+    <div class="btn-row" style="flex-direction:column;gap:7px;">
+      <button class="btn btn-p" id="btnRetomarCadena" style="background:#7c3aed;" onclick="confirmarRetomarCadena()">🔗 Retomar esta cadena (no duplica)</button>
+      <button class="btn btn-o" onclick="confirmarCargarIgual()">Programar igual, como entrada nueva</button>
       <button class="btn btn-o" onclick="cancelarCargaDuplicada()">Cancelar</button>
-      <button class="btn btn-p" onclick="confirmarCargarIgual()">Programar igual</button>
     </div>
   </div>
 </div>
@@ -1450,8 +1451,17 @@ async function addEntry(){
   const previas = buscarCargasPrevias(direccion);
   if(previas.length){
     const terminadas = previas.filter(e=>(e.estado||(e.terminado?'terminada':'pendiente'))==='terminada');
+    const finalAbierta = dtFinalDeDireccion(direccion); // última etapa de la cadena, si sigue sin terminar
+    const puedeRetomar = finalAbierta && (finalAbierta.estado||(finalAbierta.terminado?'terminada':'pendiente'))!=='terminada';
+    _retomarId = puedeRetomar ? finalAbierta.id : null;
     const msgEl = document.getElementById('dupCalleMsg');
-    if(terminadas.length){
+    const btnRetomar = document.getElementById('btnRetomarCadena');
+    btnRetomar.style.display = puedeRetomar ? 'block' : 'none';
+    if(puedeRetomar){
+      const cadena = dtCadenaCompleta(finalAbierta);
+      const recorrido = cadena.map(e=>`${e.cuadrilla} (${fd(e.fecha)})`).join(' → ');
+      msgEl.innerHTML = `<strong>${direccion}</strong><br>Ya tiene un trabajo en curso sin terminar:<br><em>${recorrido}</em><br><br>¿Retomás esa cadena con ${cuadrilla} para el ${fd(fecha)}, o la programás como entrada nueva?`;
+    } else if(terminadas.length){
       const ultima = terminadas.slice().sort((a,b)=>a.fecha<b.fecha?1:-1)[0];
       msgEl.innerHTML = `<strong>${direccion}</strong><br>Ya se programó antes y se <strong>terminó por última vez el ${fd(ultima.fecha)}</strong> (${dtCuadrillaLabel(ultima.cuadrilla)}).<br><br>¿La programás igual para ${fd(fecha)}?`;
     } else {
@@ -1466,9 +1476,12 @@ async function addEntry(){
 }
 window.addEntry = addEntry;
 
+let _retomarId = null;
+
 function cancelarCargaDuplicada(){
   document.getElementById('modalDupCalle').style.display='none';
   _pendienteCarga = null;
+  _retomarId = null;
 }
 window.cancelarCargaDuplicada = cancelarCargaDuplicada;
 
@@ -1477,7 +1490,39 @@ async function confirmarCargarIgual(){
   if(!_pendienteCarga) return;
   await crearEntradaReal(_pendienteCarga);
   _pendienteCarga = null;
+  _retomarId = null;
 }
+
+// Continúa la cadena abierta de esa dirección en vez de crear una entrada
+// suelta: la nueva etapa queda enlazada (reprogramadoDe) y la anterior pasa
+// a "Falta terminar" con continuaEn apuntando a la nueva fecha.
+async function confirmarRetomarCadena(){
+  document.getElementById('modalDupCalle').style.display='none';
+  if(!_pendienteCarga || !_retomarId){ _pendienteCarga=null; _retomarId=null; return; }
+  const anterior = entries.find(e=>e.id===_retomarId);
+  const datos = _pendienteCarga;
+  _pendienteCarga = null; _retomarId = null;
+  try{
+    await addDoc(collection(db,'planificacion_entries'), {
+      fecha: datos.fecha, cuadrilla: datos.cuadrilla, direccion: datos.direccion,
+      calle: datos.calle||'', entre1: datos.entre1||'', entre2: datos.entre2||'',
+      coordsCalle: datos.coordsCalle||null, coordsEntre1: datos.coordsEntre1||null, coordsEntre2: datos.coordsEntre2||null,
+      estado: 'pendiente', terminado: false,
+      reprogramadoDe: anterior ? anterior.id : null,
+      observaciones: datos.observaciones||'', equipo: !!datos.equipo, equipoDetalle: datos.equipoDetalle||'',
+      material: datos.material||'', escombro: !!datos.escombro,
+      creadoPor: currentUser ? currentUser.email : '', creadoEn: serverTimestamp()
+    });
+    if(anterior){
+      await updateDoc(doc(db,'planificacion_entries', anterior.id), {
+        estado: 'incompleta', terminado: false, continuaEn: datos.fecha
+      });
+    }
+    logActividad('Retomó cadena de trabajo', `${datos.direccion} → ${datos.cuadrilla} (${fd(datos.fecha)})`);
+    toast('✓ Cadena retomada — no se duplicó el trabajo');
+  }catch(err){ console.error(err); toast('No se pudo retomar la cadena', true); }
+}
+window.confirmarRetomarCadena = confirmarRetomarCadena;
 window.confirmarCargarIgual = confirmarCargarIgual;
 
 async function crearEntradaReal(datos){
@@ -2007,19 +2052,28 @@ function dtEstadoDe(e){ return e.estado || (e.terminado ? 'terminada' : 'pendien
 // no debe contarse varias veces en el informe, solo su estado final ──
 function dtSupersededIds(){
   const s = new Set();
-  entries.forEach(e=>{ if(e.reprogramadoDe) s.add(e.reprogramadoDe); });
+  // Una entrada queda "superada" (no cuenta aparte en informes/stats) si otra
+  // entrada la continúa — por reprogramación, por Derivar o por "siguiente etapa".
+  entries.forEach(e=>{
+    if(e.reprogramadoDe) s.add(e.reprogramadoDe);
+    if(e.derivadoDe)     s.add(e.derivadoDe);
+    if(e.sigueDe)         s.add(e.sigueDe);
+  });
   return s;
 }
 function dtEntradasFinales(){
   const superseded = dtSupersededIds();
   return entries.filter(e => !superseded.has(e.id));
 }
+function dtEnlaceAnterior(e){
+  return e.reprogramadoDe || e.derivadoDe || e.sigueDe || null;
+}
 function dtInfoCadena(e){
   let actual = e, inicio = e.fecha, n = 0;
   const fechas = [e.fecha];
   const visitados = new Set([e.id]);
-  while(actual.reprogramadoDe){
-    const prev = entries.find(x=>x.id===actual.reprogramadoDe);
+  while(dtEnlaceAnterior(actual)){
+    const prev = entries.find(x=>x.id===dtEnlaceAnterior(actual));
     if(!prev || visitados.has(prev.id)) break;
     visitados.add(prev.id);
     fechas.push(prev.fecha);
@@ -2028,6 +2082,30 @@ function dtInfoCadena(e){
     actual = prev;
   }
   return {inicio, reprogramaciones:n, fechas};
+}
+// Recorrido completo de una cadena (de la primera etapa a la última), con
+// cuadrilla y fecha de cada paso — para mostrar en el Informe Semanal.
+function dtCadenaCompleta(e){
+  const out = [e];
+  let actual = e;
+  const visitados = new Set([e.id]);
+  while(dtEnlaceAnterior(actual)){
+    const prev = entries.find(x=>x.id===dtEnlaceAnterior(actual));
+    if(!prev || visitados.has(prev.id)) break;
+    visitados.add(prev.id);
+    out.unshift(prev);
+    actual = prev;
+  }
+  return out;
+}
+// Entrada "final" de la cadena de una dirección (la que no está superada por
+// otra): se usa para saber si una dirección ya cargada sigue abierta.
+function dtFinalDeDireccion(direccion){
+  const norm = s => (s||'').trim().toLowerCase();
+  const sup = dtSupersededIds();
+  const candidatas = entries.filter(e => norm(e.direccion)===norm(direccion) && !sup.has(e.id));
+  if(!candidatas.length) return null;
+  return candidatas.slice().sort((a,b)=> a.fecha<b.fecha?1:-1)[0];
 }
 
 function dtInit(){
@@ -4155,14 +4233,32 @@ function infGetEntradas(){
   return fil;
 }
 
+// Prepara los datos del Informe Semanal respetando la cadena de trabajo:
+// una dirección que pasó por varias cuadrillas (reprogramada / derivada /
+// con "siguiente etapa") cuenta una sola vez, con el estado de su última etapa.
+function infPrepararDatos(fil){
+  const filDedup = infDeduplicar(fil);
+  const estad = e => e.estado||(e.terminado?'terminada':'pendiente');
+  const term  = filDedup.filter(e=>estad(e)==='terminada');
+  const falta = filDedup.filter(e=>estad(e)==='incompleta');
+  const ejec  = filDedup.filter(e=>estad(e)==='pendiente');
+  const etapas = filDedup.reduce((s,e)=>s+dtCadenaCompleta(e).length,0);
+  return {filDedup, term, falta, ejec, etapas};
+}
+// Texto del recorrido de una dirección (si tuvo más de una etapa)
+function infCadenaTexto(e, sep){
+  sep = sep || ' → ';
+  const cadena = dtCadenaCompleta(e);
+  if(cadena.length<2) return '';
+  return cadena.map(x=>`${x.cuadrilla} (${fd(x.fecha)})`).join(sep);
+}
+
 function infPreview(){
   const fil = infGetEntradas();
   if(!fil) return;
-  const filDedup = infDeduplicar(fil);
+  const {filDedup, term, falta, ejec, etapas} = infPrepararDatos(fil);
   const total = filDedup.length;
-  const term = filDedup.filter(e=>(e.estado||(e.terminado?'terminada':'pendiente'))==='terminada').length;
-  const ejec = total - term;
-  const pct  = total ? Math.round(term/total*100) : 0;
+  const pct  = total ? Math.round(term.length/total*100) : 0;
   const desde = document.getElementById('inf-desde').value.split('-').reverse().join('/');
   const hasta = document.getElementById('inf-hasta').value.split('-').reverse().join('/');
   const tipoSel = document.getElementById('inf-tipo') ? document.getElementById('inf-tipo').value : '';
@@ -4171,9 +4267,10 @@ function infPreview(){
   box.style.display='block';
   txt.innerHTML = `
     <strong>Período:</strong> ${desde} al ${hasta}${tipoSel?` · <strong>Tipo:</strong> ${tipoSel}`:''}<br>
-    <strong>Total:</strong> ${total} trabajos &nbsp;|&nbsp;
-    <strong style="color:#166534;">✓ Terminados: ${term} (${pct}%)</strong> &nbsp;|&nbsp;
-    <strong style="color:#92400e;">⏳ En ejecución: ${ejec}</strong>
+    <strong>Direcciones:</strong> ${total} &nbsp;|&nbsp; <strong>Etapas:</strong> ${etapas}<br>
+    <strong style="color:#166534;">✓ Terminados: ${term.length} (${pct}%)</strong> &nbsp;|&nbsp;
+    <strong style="color:#92400e;">⚠️ Falta terminar: ${falta.length}</strong> &nbsp;|&nbsp;
+    <strong style="color:#1e40af;">⏳ En ejecución: ${ejec.length}</strong>
   `;
 }
 window.infPreview = infPreview;
@@ -4186,11 +4283,8 @@ function infCopiarWA(){
   const hasta  = document.getElementById('inf-hasta').value.split('-').reverse().join('/');
   const periodo = desde===hasta ? desde : `${desde} al ${hasta}`;
 
-  const filDedup = infDeduplicar(fil);
-  const estad = e => e.estado||(e.terminado?'terminada':'pendiente');
-  const term  = filDedup.filter(e=>estad(e)==='terminada');
-  const ejec  = filDedup.filter(e=>estad(e)!=='terminada');
-  const total = fil.length;
+  const {filDedup, term, falta, ejec, etapas} = infPrepararDatos(fil);
+  const total = filDedup.length;
   const pct   = total ? Math.round(term.length/total*100) : 0;
 
   function bloque(emoji, titulo, lista){
@@ -4200,10 +4294,16 @@ function infCopiarWA(){
       const items=lista.filter(e=>tipo.ids.includes(e.cuadrilla));
       if(!items.length) return;
       s+=`\n*${tipo.label}*\n`;
-      items.forEach(e=>{ s+=`• ${e.direccion}\n`; });
+      items.forEach(e=>{
+        const cadena = infCadenaTexto(e);
+        s+=`• ${e.direccion}${cadena?`  _(${cadena})_`:''}\n`;
+      });
     });
     const extras=lista.filter(e=>!TIPOS_INFORME.some(t=>t.ids.includes(e.cuadrilla)));
-    if(extras.length){ s+=`\n*Otros*\n`; extras.forEach(e=>{ s+=`• ${e.direccion}\n`; }); }
+    if(extras.length){
+      s+=`\n*Otros*\n`;
+      extras.forEach(e=>{ const cadena = infCadenaTexto(e); s+=`• ${e.direccion}${cadena?`  _(${cadena})_`:''}\n`; });
+    }
     return s+'\n';
   }
 
@@ -4212,8 +4312,9 @@ function infCopiarWA(){
   txt+=`Dirección de Ejecución en Red Vial · Municipalidad de Lanús\n`;
   txt+=`📅 Período: ${periodo}\n`;
   txt+=`${'━'.repeat(28)}\n\n`;
-  txt+=`📊 *Resumen:* ${total} trabajos · ✅ ${term.length} terminados (${pct}%) · ⏳ ${ejec.length} en ejecución\n\n`;
+  txt+=`📊 *Resumen:* ${total} direcciones (${etapas} etapas) · ✅ ${term.length} terminadas (${pct}%) · ⚠️ ${falta.length} falta terminar · ⏳ ${ejec.length} en ejecución\n\n`;
   txt+=bloque('✅',`TRABAJOS REALIZADOS (${term.length})`,term);
+  if(falta.length) txt+=bloque('⚠️',`FALTA TERMINAR (${falta.length})`,falta);
   if(ejec.length) txt+=bloque('⏳',`EN EJECUCIÓN (${ejec.length})`,ejec);
   txt+=`${'━'.repeat(28)}\nMunicipalidad de Lanús`;
 
@@ -4231,9 +4332,16 @@ window.infCopiarWA = infCopiarWA;
 
 
 function infDeduplicar(lista){
-  // Dentro de cada tipo, si la misma dirección aparece varias veces, queda solo la más reciente
+  // 1) Si una entrada ya fue continuada por otra (reprogramada, derivada o
+  //    con "siguiente etapa"), no cuenta aparte: su estado real vive en la
+  //    entrada que la continúa. Así una cadena completa de trabajo se
+  //    cuenta una sola vez, con el estado de su última etapa.
+  const superseded = dtSupersededIds();
+  const sinSuperadas = lista.filter(e=>!superseded.has(e.id));
+  // 2) Por si quedó una dirección cargada dos veces SIN vínculo de cadena
+  //    (carga manual repetida), dentro de cada tipo se queda la más reciente.
   const grupos = {};
-  lista.forEach(e=>{
+  sinSuperadas.forEach(e=>{
     const tipo = TIPOS_INFORME.find(t=>t.ids.includes(e.cuadrilla));
     const tipoKey = tipo ? tipo.label : e.cuadrilla;
     const key = tipoKey + '||' + (e.direccion||'').trim().toLowerCase();
@@ -4254,10 +4362,7 @@ function infGenerarPDF(){
   const periodo  = desdeStr===hastaStr ? desdeStr : `${desdeStr} al ${hastaStr}`;
   const emitido  = new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
 
-  const filDedup = infDeduplicar(fil);
-  const estad2 = e => e.estado||(e.terminado?'terminada':'pendiente');
-  const term  = filDedup.filter(e=>estad2(e)==='terminada');
-  const ejec  = filDedup.filter(e=>estad2(e)!=='terminada');
+  const {filDedup, term, falta, ejec, etapas} = infPrepararDatos(fil);
   const total = filDedup.length;
   const pct   = total ? Math.round(term.length/total*100) : 0;
 
@@ -4266,42 +4371,41 @@ function infGenerarPDF(){
 
   const tiposUniq=[...new Set(fil.map(e=>{ const t=TIPOS_INFORME.find(ti=>ti.ids.includes(e.cuadrilla)); return t?t.label:e.cuadrilla; }))].join(', ');
 
-  function filasTipo(lista){
-    let html='';
-    TIPOS_INFORME.forEach(tipo=>{
-      const items=lista.filter(e=>tipo.ids.includes(e.cuadrilla));
-      if(!items.length) return;
-      html+=`<tr style="background:#e8f0f8;"><td colspan="3" style="padding:5px 8px;font-weight:700;font-size:10px;color:#1a3a5c;text-transform:uppercase;letter-spacing:.5px;">${tipo.label}</td></tr>`;
-      items.forEach((e,i)=>{ html+=`<tr style="background:${i%2===0?'#f8fbff':'#fff'};"><td style="padding:6px 8px;font-weight:600;font-size:11px;">${e.direccion}</td><td style="padding:6px 8px;font-size:10px;color:#666;">${tipo.label}</td><td style="padding:6px 8px;font-size:10px;color:#666;">${fd(e.fecha)}</td></tr>`; });
-    });
-    const extras=lista.filter(e=>!TIPOS_INFORME.some(t=>t.ids.includes(e.cuadrilla)));
-    if(extras.length){
-      html+=`<tr style="background:#e8f0f8;"><td colspan="3" style="padding:5px 8px;font-weight:700;font-size:10px;color:#1a3a5c;">OTROS</td></tr>`;
-      extras.forEach((e,i)=>{ html+=`<tr style="background:${i%2===0?'#f8fbff':'#fff'};"><td style="padding:6px 8px;font-weight:600;font-size:11px;">${e.direccion}</td><td style="padding:6px 8px;font-size:10px;color:#666;">${e.cuadrilla}</td><td style="padding:6px 8px;font-size:10px;color:#666;">${fd(e.fecha)}</td></tr>`; });
-    }
-    return html;
+  function estiloBorde(estado){
+    if(estado==='terminada') return '#166534';
+    if(estado==='incompleta') return '#92400e';
+    return '#1e40af';
   }
 
-  function seccion(titulo, color, lista){
-    if(!lista.length) return '';
+  // Tarjeta por dirección: nombre + chips con cada etapa de su cadena
+  function tarjeta(e){
+    const estado = e.estado||(e.terminado?'terminada':'pendiente');
+    const tipo = TIPOS_INFORME.find(t=>t.ids.includes(e.cuadrilla));
+    const cadena = dtCadenaCompleta(e);
+    const chips = cadena.map((x,i)=>{
+      const esUltimo = i===cadena.length-1;
+      return `<span style="display:inline-block;background:${esUltimo?'#1a3a5c':'#e8f0f8'};color:${esUltimo?'#fff':'#1a3a5c'};border-radius:10px;padding:2px 8px;font-size:9px;font-weight:600;margin:1px 0;">${x.cuadrilla} · ${fd(x.fecha)}</span>`
+        + (esUltimo?'':'<span style="color:#9ab0c6;margin:0 3px;">→</span>');
+    }).join('');
     return `
-      <div style="margin-bottom:16px;">
-        <div style="background:${color};color:#fff;padding:7px 12px;border-radius:4px;display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="font-weight:700;font-size:11px;">${titulo}</span>
-          <span style="font-size:11px;">${lista.length} trabajo${lista.length!==1?'s':''}</span>
-        </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr style="background:#e8f0f8;">
-            <th style="padding:5px 8px;text-align:left;font-size:9.5px;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #c8d8ea;">Dirección</th>
-            <th style="padding:5px 8px;text-align:left;font-size:9.5px;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #c8d8ea;">Cuadrilla</th>
-            <th style="padding:5px 8px;text-align:left;font-size:9.5px;color:#1a3a5c;text-transform:uppercase;border-bottom:1px solid #c8d8ea;">Fecha</th>
-          </tr></thead>
-          <tbody>${filasTipo(lista)}</tbody>
-        </table>
+      <div style="border:1px solid #d8e4f0;border-left:4px solid ${estiloBorde(estado)};border-radius:7px;padding:9px 11px;margin-bottom:8px;">
+        <div style="font-weight:700;font-size:12px;margin-bottom:4px;">${e.direccion} <span style="color:#9ab0c6;font-weight:400;font-size:9.5px;">(${tipo?tipo.label:e.cuadrilla})</span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;">${chips}</div>
       </div>`;
   }
 
-  const introTxt=`La Dirección de Ejecución en Red Vial informa que durante el período ${periodo}, se planificaron ${total} trabajo${total!==1?'s':''} en la zona del Partido de Lanús, abarcando: ${tiposUniq}. De estos, ${term.length} fueron completados satisfactoriamente, representando una tasa de ejecución del ${pct}%.`;
+  function seccion(titulo, color, lista){
+    if(!lista.length) return '<div style="font-size:10px;color:#9ab0c6;font-style:italic;padding:2px 2px 10px;">Sin direcciones en este estado.</div>';
+    return lista.map(tarjeta).join('');
+  }
+  function encabezadoSeccion(titulo, color, n){
+    return `<div style="background:${color};color:#fff;padding:7px 12px;border-radius:4px;display:flex;justify-content:space-between;margin:14px 0 6px;">
+      <span style="font-weight:700;font-size:11px;">${titulo}</span>
+      <span style="font-size:11px;">${n} dirección${n!==1?'es':''}</span>
+    </div>`;
+  }
+
+  const introTxt=`La Dirección de Ejecución en Red Vial informa que durante el período ${periodo}, se planificaron ${total} trabajo${total!==1?'s':''} (en ${etapas} etapa${etapas!==1?'s':''} de cuadrilla) en la zona del Partido de Lanús, abarcando: ${tiposUniq}. De estos, ${term.length} fueron completados satisfactoriamente (${pct}%), ${falta.length} quedaron con trabajo pendiente de cerrar y ${ejec.length} siguen en curso.`;
 
   const win = window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -4332,25 +4436,30 @@ function infGenerarPDF(){
     <!-- STATS -->
     <div style="background:#e8f0f8;border-bottom:2px solid #1a3a5c;display:flex;padding:0;">
       ${[
-        {n:total,       l:'Total',       c:'#1a3a5c'},
-        {n:term.length, l:'Terminados',  c:'#166534'},
-        {n:ejec.length, l:'En ejecución',c:'#92400e'},
-        {n:pct+'%',     l:'Ejecución',   c:pct>=80?'#166534':pct>=50?'#92400e':'#b91c1c'},
+        {n:total,        l:'Direcciones', c:'#1a3a5c'},
+        {n:etapas,       l:'Etapas',      c:'#5a7a9a'},
+        {n:term.length,  l:'Terminados',  c:'#166534'},
+        {n:falta.length, l:'Falta terminar', c:'#92400e'},
+        {n:ejec.length,  l:'En ejecución',c:'#1e40af'},
       ].map(s=>`<div style="flex:1;text-align:center;padding:10px 4px;border-right:1px solid #c8d8ea;">
-        <div style="font-size:20px;font-weight:800;color:${s.c};">${s.n}</div>
-        <div style="font-size:8px;color:#5a7a9a;text-transform:uppercase;letter-spacing:.4px;">${s.l}</div>
+        <div style="font-size:18px;font-weight:800;color:${s.c};">${s.n}</div>
+        <div style="font-size:7.5px;color:#5a7a9a;text-transform:uppercase;letter-spacing:.3px;">${s.l}</div>
       </div>`).join('')}
     </div>
 
     <!-- BODY -->
     <div style="padding:14px 18px;">
       <!-- INTRO -->
-      <div style="background:#f8fbff;border-left:3px solid #1a3a5c;padding:10px 12px;border-radius:0 4px 4px 0;margin-bottom:16px;font-size:10.5px;color:#2a4060;line-height:1.6;font-style:italic;">
+      <div style="background:#f8fbff;border-left:3px solid #1a3a5c;padding:10px 12px;border-radius:0 4px 4px 0;margin-bottom:10px;font-size:10.5px;color:#2a4060;line-height:1.6;font-style:italic;">
         ${introTxt}
       </div>
 
-      ${seccion('✓ TRABAJOS REALIZADOS','#1a3a5c',term)}
-      ${ejec.length ? seccion('⏳ EN EJECUCIÓN','#6b7280',ejec) : ''}
+      ${encabezadoSeccion('✓ TRABAJOS REALIZADOS','#166534',term.length)}
+      ${seccion('realizados','#166534',term)}
+      ${encabezadoSeccion('⚠️ FALTA TERMINAR','#92400e',falta.length)}
+      ${seccion('falta','#92400e',falta)}
+      ${encabezadoSeccion('⏳ EN EJECUCIÓN','#1e40af',ejec.length)}
+      ${seccion('ejec','#1e40af',ejec)}
     </div>
 
     <!-- FOOTER -->

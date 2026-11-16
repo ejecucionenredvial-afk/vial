@@ -665,6 +665,7 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
   <div class="tab active" onclick="showPanel('carga')">📋 Carga</div>
   <div class="tab" onclick="showPanel('verificar')">🔎 Verificar Programación</div>
   <div class="tab" onclick="showPanel('hojas')">🖨️ Hojas por Cuadrilla</div>
+  <div class="tab" onclick="showPanel('escombros')">🧱 Escombros</div>
   <div class="tab" id="tab-controlruta" onclick="showPanel('controlruta')">🧭 Control de Ruta</div>
   <div class="tab" onclick="showPanel('ruta')">🗺️ Ruta del Día</div>
   <div class="tab" onclick="showPanel('enviar')">📤 Resumen p/ Enviar</div>
@@ -715,17 +716,52 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
           ✓ Dirección verificada en el mapa
         </div>
       </div>
+      <div style="grid-column:1/-1;padding:8px 10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;">
+          <input type="checkbox" id="inp-escombro" style="width:17px;height:17px;">
+          <span style="font-weight:600;color:#991b1b;">🧱 Escombro a levantar en esta dirección</span>
+        </label>
+      </div>
+      <div style="padding:8px 10px;background:#f7f8fa;border:1px solid var(--borde);border-radius:6px;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0 0 7px;">
+          <input type="checkbox" id="inp-equipo-check" onchange="document.getElementById('wrap-equipo-detalle').style.display=this.checked?'block':'none'" style="width:17px;height:17px;">
+          <span style="font-weight:600;">🚛 Sale camión o máquina</span>
+        </label>
+        <div id="wrap-equipo-detalle" style="display:none;">
+          <input type="text" id="inp-equipo-detalle" placeholder="Ej: Camión volcador, retroexcavadora..." style="width:100%;">
+        </div>
+      </div>
+      <div>
+        <label>Material específico <span style="font-weight:400;color:#aaa;font-size:11px;">(opcional)</span></label>
+        <input type="text" id="inp-material" list="lista-materiales" placeholder="Buscar o escribir material..." autocomplete="off">
+        <datalist id="lista-materiales">
+          <option value="Arena"></option>
+          <option value="Fresado frío"></option>
+          <option value="Asfalto en caliente"></option>
+          <option value="Emulsión asfáltica"></option>
+          <option value="Piedra partida"></option>
+          <option value="Cemento"></option>
+          <option value="Cal"></option>
+          <option value="Suelo seleccionado"></option>
+        </datalist>
+      </div>
+      <div style="grid-column:1/-1;padding:8px 10px;background:#f0f6ff;border:1px solid #bfdbfe;border-radius:6px;">
+        <label style="font-weight:600;color:#1e40af;">📝 Observaciones <span style="font-weight:400;color:#6b84a8;font-size:11px;">(opcional)</span></label>
+        <textarea id="inp-observaciones" rows="2" placeholder="Notas sobre esta dirección..." style="width:100%;resize:vertical;"></textarea>
+      </div>
     </div>
     <div style="margin-top:13px;display:flex;gap:9px;flex-wrap:wrap;">
       <button class="btn btn-p" onclick="addEntry()">✓ Agregar</button>
       <button class="btn btn-o" onclick="clearForm()">✕ Limpiar</button>
       <button class="btn btn-o" onclick="abrirModalCalles()" title="Elegir dirección del mapa de calles">📍 Del mapa</button>
+      <button class="btn btn-o" style="background:#eef2ff;border-color:#a5b4fc;color:#3730a3;" onclick="abrirModalLluvia()" title="Marcar día sin actividad por clima">🌧️ Día de lluvia</button>
     </div>
   </div>
   <div class="card">
     <div class="fb">
       <div class="card-title" style="margin:0;border:none;padding:0;">📊 Registro</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <input type="text" id="fil-buscar" placeholder="🔍 Buscar dirección o material..." oninput="renderTable()" style="width:auto;min-width:160px;font-size:12px;padding:4px 7px;">
         <input type="date" id="fil-fecha" onchange="renderTable()" style="width:auto;font-size:12px;padding:4px 7px;">
         <select id="fil-cuadrilla" onchange="renderTable()" style="font-size:12px;padding:4px 7px;border:1px solid var(--borde);border-radius:5px;max-width:140px;">
           <option value="">Todas las cuadrillas</option>
@@ -745,6 +781,23 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
       </table>
       <div id="tbl-empty" class="es">Sin entradas. Usá el formulario de arriba para agregar.</div>
     </div>
+  </div>
+</div>
+
+<!-- ── ESCOMBROS ── -->
+<div id="panel-escombros" class="panel">
+  <div class="card">
+    <div class="card-title">🧱 Escombros a levantar</div>
+    <p style="font-size:12px;color:#667;margin-bottom:12px;">Direcciones marcadas con "Escombro a levantar" en el período seleccionado.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label>Desde</label><input type="date" id="esc-desde" onchange="renderEscombros()"></div>
+      <div><label>Hasta</label><input type="date" id="esc-hasta" onchange="renderEscombros()"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-o" style="font-size:11.5px;" onclick="escombrosSetSemana()">Esta semana</button>
+      <button class="btn btn-s" onclick="escombrosCopiarWA()" style="background:#25d366;color:#fff;">📲 Enviar por WhatsApp</button>
+    </div>
+    <div id="esc-lista"></div>
   </div>
 </div>
 
@@ -971,6 +1024,12 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
       <button class="btn btn-o" style="font-size:11.5px;" onclick="infSetPeriodo('semana_ant')">Semana pasada</button>
       <button class="btn btn-o" style="font-size:11.5px;" onclick="infSetPeriodo('mes')">Este mes</button>
     </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:600;color:#445;display:block;margin-bottom:4px;">Tipo de trabajo</label>
+      <select id="inf-tipo" onchange="infPreview()" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:6px;font-size:13px;">
+        <option value="">Todos los tipos</option>
+      </select>
+    </div>
     <div id="inf-preview" style="display:none;background:#f8fbff;border:1px solid #dde8f2;border-radius:8px;padding:12px;margin-bottom:14px;">
       <div style="font-size:12px;color:#2a4a6a;line-height:1.6;" id="inf-preview-txt"></div>
     </div>
@@ -1098,12 +1157,46 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
     <div class="meta" id="segDireccion"></div>
     <label>Fecha para la siguiente cuadrilla</label>
     <input type="date" id="segFecha" style="margin-bottom:14px;">
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn" style="background:#2c5f8a;color:#fff;" onclick="confirmarSeguimiento('Bacheo 1')">🚧 Programar Bacheo 1</button>
-      <button class="btn" style="background:#1a3a5c;color:#fff;" onclick="confirmarSeguimiento('Bacheo 2')">🚧 Programar Bacheo 2</button>
-      <button class="btn" style="background:#0f2233;color:#fff;" onclick="confirmarSeguimiento('Bacheo 3')">🚧 Programar Bacheo 3</button>
-      <button class="btn" style="background:#e07b2a;color:#fff;" onclick="confirmarSeguimiento('Terminadora')">🛣️ Programar Terminadora</button>
-      <button class="btn btn-o" onclick="cerrarModalSeg()">✓ Dejar como terminado, sin programar</button>
+    <div id="segOpciones" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalDerivar">
+  <div class="modal-box" style="max-width:380px;">
+    <h3>➡️ Derivar a otra cuadrilla</h3>
+    <div class="meta" id="derDireccion"></div>
+    <label>Cuadrilla destino</label>
+    <select id="derCuadrilla" style="margin-bottom:12px;"></select>
+    <label>Fecha para la cuadrilla destino</label>
+    <input type="date" id="derFecha" style="margin-bottom:12px;">
+    <label>Nota <span style="font-weight:400;color:#aaa;font-size:11px;">(opcional)</span></label>
+    <textarea id="derNota" rows="2" style="width:100%;margin-bottom:14px;resize:vertical;"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-o" onclick="cerrarModalDerivar()">Cancelar</button>
+      <button class="btn btn-p" onclick="confirmarDerivarManual()">✓ Derivar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalLluvia">
+  <div class="modal-box" style="max-width:420px;max-height:80vh;display:flex;flex-direction:column;">
+    <h3>🌧️ Día sin actividad por clima</h3>
+    <label>Fecha</label>
+    <input type="date" id="lluFecha" style="margin-bottom:10px;">
+    <label>Motivo</label>
+    <select id="lluMotivo" style="margin-bottom:10px;">
+      <option value="Suspensión de tareas por condiciones climáticas adversas">Suspensión de tareas por condiciones climáticas adversas</option>
+      <option value="Suspensión de tareas por precipitaciones">Suspensión de tareas por precipitaciones</option>
+      <option value="Tareas preventivas por anegamiento de calzada">Tareas preventivas por anegamiento de calzada</option>
+    </select>
+    <label style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Cuadrillas afectadas</span>
+      <span style="font-weight:400;font-size:11px;"><a href="#" onclick="lluToggleTodas();return false;">marcar/desmarcar todas</a></span>
+    </label>
+    <div id="lluCuadrillas" style="overflow-y:auto;max-height:220px;display:flex;flex-direction:column;gap:6px;margin:6px 0 14px;border:1px solid var(--borde);border-radius:6px;padding:8px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-o" onclick="cerrarModalLluvia()">Cancelar</button>
+      <button class="btn btn-p" onclick="confirmarLluvia()">✓ Aplicar</button>
     </div>
   </div>
 </div>
@@ -1165,6 +1258,21 @@ table.cr-control.cr-tight .cr-num-pin{width:14px;height:14px;font-size:8px;margi
     <select id="editCuadrilla"></select>
     <label style="margin-top:8px;">Dirección</label>
     <input type="text" id="editDireccion" placeholder="Ej: Quindimil entre Choele Choel y Burgos">
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-top:10px;">
+      <input type="checkbox" id="editEscombro" style="width:17px;height:17px;">
+      <span>🧱 Escombro a levantar</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-top:6px;">
+      <input type="checkbox" id="editEquipoCheck" onchange="document.getElementById('editWrapEquipo').style.display=this.checked?'block':'none'" style="width:17px;height:17px;">
+      <span>🚛 Sale camión o máquina</span>
+    </label>
+    <div id="editWrapEquipo" style="display:none;margin-top:4px;">
+      <input type="text" id="editEquipoDetalle" placeholder="Ej: Camión volcador...">
+    </div>
+    <label style="margin-top:8px;">Material <span style="font-weight:400;color:#aaa;font-size:11px;">(opcional)</span></label>
+    <input type="text" id="editMaterial" list="lista-materiales" autocomplete="off">
+    <label style="margin-top:8px;">Observaciones <span style="font-weight:400;color:#aaa;font-size:11px;">(opcional)</span></label>
+    <textarea id="editObservaciones" rows="2" style="width:100%;resize:vertical;"></textarea>
     <div class="btn-row">
       <button class="btn btn-o" onclick="cerrarModalEditar()">Cancelar</button>
       <button class="btn btn-p" onclick="confirmarEditarEntrada()">Guardar cambios</button>
@@ -1256,6 +1364,14 @@ function today()    { return new Date().toISOString().slice(0,10) }
 function fd(iso)    { if(!iso)return''; const[y,m,d]=iso.split('-'); return `${d}/${m}/${y}` }
 function toast(msg) { const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200) }
 function gc(id)     { return config.cuadrillas.find(c=>c.id===id)||{id,label:id,icon:'📍',color:'#1a3a5c',responsable:'',jefe:''} }
+// Etiqueta a mostrar para una entrada: si el día fue marcado como climático,
+// se muestra como "Preventivo N" en vez del nombre real de la cuadrilla
+// (es solo un cambio de etiqueta visual, no cambia e.cuadrilla).
+function dispCuadrilla(e){
+  if(!e || !e.climatico) return e ? e.cuadrilla : '';
+  const m = e.cuadrilla.match(/(\d+)\s*$/);
+  return m ? `Preventivo ${m[1]}` : 'Preventivo';
+}
 function bc(id)     { return 'b-'+(BADGE_MAP[id]||'df') }
 function ag(list)   { const g={}; list.forEach(e=>{if(!g[e.cuadrilla])g[e.cuadrilla]=[];g[e.cuadrilla].push(e)}); return g }
 function ok(g)      { const o=config.cuadrillas.map(c=>c.id); return [...new Set([...o.filter(k=>g[k]),...Object.keys(g).filter(k=>!o.includes(k))])] }
@@ -1323,7 +1439,13 @@ async function addEntry(){
   const coordsEntre1 = acState.entre1.coords || null;
   const coordsEntre2 = acState.entre2.coords || null;
 
-  _pendienteCarga = {fecha,cuadrilla,calle,entre1,entre2,direccion,coordsCalle,coordsEntre1,coordsEntre2};
+  const observaciones = (document.getElementById('inp-observaciones').value||'').trim();
+  const equipo = document.getElementById('inp-equipo-check').checked;
+  const equipoDetalle = equipo ? (document.getElementById('inp-equipo-detalle').value||'').trim() : '';
+  const material = (document.getElementById('inp-material').value||'').trim();
+  const escombro = document.getElementById('inp-escombro').checked;
+
+  _pendienteCarga = {fecha,cuadrilla,calle,entre1,entre2,direccion,coordsCalle,coordsEntre1,coordsEntre2,observaciones,equipo,equipoDetalle,material,escombro};
 
   const previas = buscarCargasPrevias(direccion);
   if(previas.length){
@@ -1359,11 +1481,13 @@ async function confirmarCargarIgual(){
 window.confirmarCargarIgual = confirmarCargarIgual;
 
 async function crearEntradaReal(datos){
-  const {fecha,cuadrilla,calle,entre1,entre2,direccion,coordsCalle,coordsEntre1,coordsEntre2} = datos;
+  const {fecha,cuadrilla,calle,entre1,entre2,direccion,coordsCalle,coordsEntre1,coordsEntre2,observaciones,equipo,equipoDetalle,material,escombro} = datos;
   try{
     await addDoc(collection(db,'planificacion_entries'), {
       fecha,cuadrilla,direccion,calle,entre1,entre2,
       coordsCalle,coordsEntre1,coordsEntre2,terminado:false,
+      observaciones: observaciones||'', equipo: !!equipo, equipoDetalle: equipoDetalle||'',
+      material: material||'', escombro: !!escombro,
       creadoPor: currentUser ? currentUser.email : '', creadoEn: serverTimestamp()
     });
     logActividad('Agregó entrada', `${cuadrilla} · ${direccion} (${fd(fecha)})`);
@@ -1399,6 +1523,12 @@ async function crearEntradaReal(datos){
   document.getElementById('dir-preview').style.display='none';
   document.getElementById('dir-verified').style.display='none';
   dirGeoData=null;
+  document.getElementById('inp-observaciones').value='';
+  document.getElementById('inp-equipo-check').checked=false;
+  document.getElementById('inp-equipo-detalle').value='';
+  document.getElementById('wrap-equipo-detalle').style.display='none';
+  document.getElementById('inp-material').value='';
+  document.getElementById('inp-escombro').checked=false;
   toast('✓ Entrada agregada');
 }
 
@@ -1542,9 +1672,15 @@ function clearForm(){
   ['calle','entre1','entre2'].forEach(f=>{ acState[f].coords=null; });
   document.getElementById('dir-verified').style.display='none';
   document.getElementById('dir-preview').style.display='none';
+  document.getElementById('inp-observaciones').value='';
+  document.getElementById('inp-equipo-check').checked=false;
+  document.getElementById('inp-equipo-detalle').value='';
+  document.getElementById('wrap-equipo-detalle').style.display='none';
+  document.getElementById('inp-material').value='';
+  document.getElementById('inp-escombro').checked=false;
 }
 window.clearForm = clearForm;
-function clearFil(){document.getElementById('fil-fecha').value='';document.getElementById('fil-cuadrilla').value='';renderTable();}
+function clearFil(){document.getElementById('fil-fecha').value='';document.getElementById('fil-cuadrilla').value='';document.getElementById('fil-buscar').value='';renderTable();}
 window.clearFil = clearFil;
 async function deleteEntry(id){
   if(!confirm('¿Eliminar esta entrada?')) return;
@@ -1563,6 +1699,28 @@ function mostrarModalSeguimiento(id){
   document.getElementById('segDireccion').textContent = `${e.direccion} · ${e.cuadrilla}`;
   const hoy = new Date().toISOString().slice(0,10);
   document.getElementById('segFecha').value = hoy;
+
+  // Sugerencia inteligente de siguiente cuadrilla según el tipo de trabajo que termina
+  const SUGERIDA = {'Fresadora':'Preparación Suelo 1','Preparación Suelo 1':'Bacheo 1','Preparación Suelo 2':'Bacheo 1'};
+  const sugerida = SUGERIDA[e.cuadrilla] || null;
+  const opciones = [
+    {id:'Preparación Suelo 1', label:'⛏️ Programar Preparación Suelo 1', bg:'#27ae60'},
+    {id:'Preparación Suelo 2', label:'⛏️ Programar Preparación Suelo 2', bg:'#1e8449'},
+    {id:'Bacheo 1', label:'🚧 Programar Bacheo 1', bg:'#2c5f8a'},
+    {id:'Bacheo 2', label:'🚧 Programar Bacheo 2', bg:'#1a3a5c'},
+    {id:'Bacheo 3', label:'🚧 Programar Bacheo 3', bg:'#0f2233'},
+    {id:'Terminadora', label:'🛣️ Programar Terminadora', bg:'#e07b2a'},
+  ];
+  const ordenadas = opciones.slice().sort((a,b)=>{
+    if(a.id===sugerida) return -1;
+    if(b.id===sugerida) return 1;
+    return 0;
+  });
+  const cont = document.getElementById('segOpciones');
+  cont.innerHTML = ordenadas.map(o=>
+    `<button class="btn" style="background:${o.bg};color:#fff;${o.id===sugerida?'box-shadow:0 0 0 2px #fbbf24 inset;':''}" onclick="confirmarSeguimiento('${o.id}')">${o.label}${o.id===sugerida?' (sugerido)':''}</button>`
+  ).join('') + `<button class="btn btn-o" onclick="cerrarModalSeg()">✓ Dejar como terminado, sin programar</button>`;
+
   document.getElementById('modalSeguimiento').style.display = 'flex';
   setTimeout(()=>document.getElementById('segFecha').focus(), 50);
 }
@@ -1589,6 +1747,7 @@ async function confirmarSeguimiento(cuadrillaSig){
       creadoPor: currentUser ? currentUser.email : '', creadoEn: serverTimestamp()
     };
     await addDoc(collection(db,'planificacion_entries'), datos);
+    await updateDoc(doc(db,'planificacion_entries', e.id), { derivadoA: cuadrillaSig });
     // Si eligió Bacheo, ofrecer también Emulsión (misma lógica ya existente)
     if(['Bacheo 1','Bacheo 2','Bacheo 3'].includes(cuadrillaSig)){
       if(confirm(`¿Agregar también Emulsión para la misma dirección?\n\n${e.direccion} · ${fd(nuevaFecha)}`)){
@@ -1640,6 +1799,100 @@ async function cambiarEstado(id, nuevoEstado){
     }
   }catch(err){ console.error(err); toast('No se pudo actualizar', true); }
 }
+
+// ── DERIVAR A OTRA CUADRILLA (manual, para cualquier entrada, incluso ya Terminada) ──
+let _derivarId = null;
+function abrirDerivar(id){
+  const e = entries.find(e=>e.id===id);
+  if(!e) return;
+  _derivarId = id;
+  document.getElementById('derDireccion').textContent = `${e.direccion} · ${e.cuadrilla}`;
+  const sel = document.getElementById('derCuadrilla');
+  sel.innerHTML = config.cuadrillas.filter(c=>c.id!==e.cuadrilla).map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
+  const SUGERIDA = {'Fresadora':'Preparación Suelo 1','Preparación Suelo 1':'Bacheo 1','Preparación Suelo 2':'Bacheo 1'};
+  if(SUGERIDA[e.cuadrilla] && config.cuadrillas.some(c=>c.id===SUGERIDA[e.cuadrilla])) sel.value = SUGERIDA[e.cuadrilla];
+  document.getElementById('derFecha').value = e.fecha || today();
+  document.getElementById('derNota').value = '';
+  document.getElementById('modalDerivar').style.display = 'flex';
+}
+window.abrirDerivar = abrirDerivar;
+
+function cerrarModalDerivar(){
+  document.getElementById('modalDerivar').style.display = 'none';
+  _derivarId = null;
+}
+window.cerrarModalDerivar = cerrarModalDerivar;
+
+async function confirmarDerivarManual(){
+  const e = entries.find(e=>e.id===_derivarId);
+  if(!e) return;
+  const cuadrillaDestino = document.getElementById('derCuadrilla').value;
+  const fecha = document.getElementById('derFecha').value;
+  const nota = (document.getElementById('derNota').value||'').trim();
+  if(!cuadrillaDestino){ toast('Elegí una cuadrilla destino', true); return; }
+  if(!fecha){ toast('Elegí una fecha', true); return; }
+  cerrarModalDerivar();
+  try{
+    await addDoc(collection(db,'planificacion_entries'), {
+      fecha, cuadrilla: cuadrillaDestino, direccion: e.direccion,
+      calle: e.calle||'', entre1: e.entre1||'', entre2: e.entre2||'',
+      coordsCalle: e.coordsCalle||null, coordsEntre1: e.coordsEntre1||null, coordsEntre2: e.coordsEntre2||null,
+      estado: 'pendiente', terminado: false,
+      derivadoDe: e.id, observaciones: nota,
+      creadoPor: currentUser ? currentUser.email : '', creadoEn: serverTimestamp()
+    });
+    await updateDoc(doc(db,'planificacion_entries', e.id), { derivadoA: cuadrillaDestino });
+    logActividad('Derivó entrada', `${e.cuadrilla} → ${cuadrillaDestino} · ${e.direccion}`);
+    toast(`✓ Derivado a ${cuadrillaDestino} para el ${fd(fecha)}`);
+  }catch(err){ console.error(err); toast('No se pudo derivar', true); }
+}
+window.confirmarDerivarManual = confirmarDerivarManual;
+
+// ── DÍA DE LLUVIA (marca entries como "climático" → se muestran como "Preventivo N") ──
+function abrirModalLluvia(){
+  const fechaEl = document.getElementById('fil-fecha');
+  document.getElementById('lluFecha').value = (fechaEl && fechaEl.value) ? fechaEl.value : today();
+  const cont = document.getElementById('lluCuadrillas');
+  cont.innerHTML = config.cuadrillas.map(c=>
+    `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;">
+       <input type="checkbox" class="llu-chk" value="${c.id}" checked style="width:16px;height:16px;">
+       <span>${c.icon||''} ${c.label}</span>
+     </label>`
+  ).join('');
+  document.getElementById('modalLluvia').style.display = 'flex';
+}
+window.abrirModalLluvia = abrirModalLluvia;
+
+function lluToggleTodas(){
+  const chks = document.querySelectorAll('.llu-chk');
+  const algunaSinMarcar = [...chks].some(c=>!c.checked);
+  chks.forEach(c=>c.checked = algunaSinMarcar);
+}
+window.lluToggleTodas = lluToggleTodas;
+
+function cerrarModalLluvia(){
+  document.getElementById('modalLluvia').style.display = 'none';
+}
+window.cerrarModalLluvia = cerrarModalLluvia;
+
+async function confirmarLluvia(){
+  const fecha = document.getElementById('lluFecha').value;
+  const motivo = document.getElementById('lluMotivo').value;
+  if(!fecha){ toast('Elegí una fecha', true); return; }
+  const seleccionadas = [...document.querySelectorAll('.llu-chk')].filter(c=>c.checked).map(c=>c.value);
+  if(!seleccionadas.length){ toast('Elegí al menos una cuadrilla', true); return; }
+  const afectadas = entries.filter(e=>e.fecha===fecha && seleccionadas.includes(e.cuadrilla));
+  if(!afectadas.length){ toast('No hay entradas de esas cuadrillas para esa fecha', true); cerrarModalLluvia(); return; }
+  cerrarModalLluvia();
+  try{
+    for(const e of afectadas){
+      await updateDoc(doc(db,'planificacion_entries', e.id), { climatico: true, climaticoMotivo: motivo });
+    }
+    logActividad('Marcó día de lluvia', `${fd(fecha)} · ${seleccionadas.length} cuadrilla(s)`);
+    toast(`✓ ${afectadas.length} entrada(s) marcadas como Preventivo por clima`);
+  }catch(err){ console.error(err); toast('No se pudo aplicar a todas las entradas', true); }
+}
+window.confirmarLluvia = confirmarLluvia;
 
 let _reprogId = null;
 
@@ -1697,6 +1950,12 @@ function editarEntrada(id){
     `<option value="${c.id}" ${c.id===e.cuadrilla?'selected':''}>${c.label||c.id}</option>`
   ).join('');
   document.getElementById('editDireccion').value = e.direccion || '';
+  document.getElementById('editEscombro').checked = !!e.escombro;
+  document.getElementById('editEquipoCheck').checked = !!e.equipo;
+  document.getElementById('editEquipoDetalle').value = e.equipoDetalle || '';
+  document.getElementById('editWrapEquipo').style.display = e.equipo ? 'block' : 'none';
+  document.getElementById('editMaterial').value = e.material || '';
+  document.getElementById('editObservaciones').value = e.observaciones || '';
   document.getElementById('modalEditar').style.display = 'flex';
 }
 window.editarEntrada = editarEntrada;
@@ -1714,12 +1973,18 @@ async function confirmarEditarEntrada(){
   const nuevaDireccion = document.getElementById('editDireccion').value.trim();
   if(!nuevaCuadrilla){ toast('Seleccioná una cuadrilla', true); return; }
   if(!nuevaDireccion){ toast('Ingresá una dirección', true); return; }
+  const escombro = document.getElementById('editEscombro').checked;
+  const equipo = document.getElementById('editEquipoCheck').checked;
+  const equipoDetalle = equipo ? (document.getElementById('editEquipoDetalle').value||'').trim() : '';
+  const material = (document.getElementById('editMaterial').value||'').trim();
+  const observaciones = (document.getElementById('editObservaciones').value||'').trim();
   const id = _editId;
   cerrarModalEditar();
   try{
     await updateDoc(doc(db,'planificacion_entries', id), {
       cuadrilla: nuevaCuadrilla,
-      direccion: nuevaDireccion
+      direccion: nuevaDireccion,
+      escombro, equipo, equipoDetalle, material, observaciones
     });
     logActividad('Editó entrada (imprevisto)', `${e.cuadrilla}·${e.direccion} → ${nuevaCuadrilla}·${nuevaDireccion}`);
     toast('✓ Entrada actualizada');
@@ -2204,6 +2469,8 @@ window.clearAll = clearAll;
 function renderTable(){
   const ff=document.getElementById('fil-fecha').value;
   const fc=document.getElementById('fil-cuadrilla').value;
+  const fbEl=document.getElementById('fil-buscar');
+  const fb=(fbEl&&fbEl.value||'').trim().toLowerCase();
 
   // Poblar el select de cuadrillas con las que hay en entries
   const sel=document.getElementById('fil-cuadrilla');
@@ -2216,6 +2483,10 @@ function renderTable(){
   let list=entries.filter(e=>{
     if(ff && e.fecha!==ff) return false;
     if(fc && e.cuadrilla!==fc) return false;
+    if(fb){
+      const hay = `${e.direccion||''} ${e.material||''} ${e.observaciones||''}`.toLowerCase();
+      if(!hay.includes(fb)) return false;
+    }
     return true;
   });
   list=list.slice().reverse();
@@ -2225,11 +2496,18 @@ function renderTable(){
     emp.style.display='none';
     tb.innerHTML=list.map(e=>{
       const estado = e.estado || (e.terminado ? 'terminada' : 'pendiente');
+      const etiqueta = dispCuadrilla(e);
+      let tags='';
+      if(e.escombro) tags+=`<br><span style="font-size:11px;color:#991b1b;font-weight:600;">🧱 Escombro a levantar</span>`;
+      if(e.equipo) tags+=`<br><span style="font-size:11px;color:#444;">🚛 ${e.equipoDetalle||'Camión/máquina'}</span>`;
+      if(e.material) tags+=`<br><span style="font-size:11px;color:#444;">🧪 ${e.material}</span>`;
+      if(e.observaciones) tags+=`<br><span style="font-size:11px;color:#1e40af;">📝 ${e.observaciones}</span>`;
+      if(e.derivadoA) tags+=`<br><span style="font-size:11px;color:#7c3aed;">➡️ derivado a ${e.derivadoA}</span>`;
       return `
       <tr class="${estado==='terminada'?'done':''}">
         <td>${fd(e.fecha)}</td>
-        <td><span class="badge ${bc(e.cuadrilla)}">${e.cuadrilla}</span></td>
-        <td>${e.direccion}${e.continuaEn?`<br><span style="font-size:11px;color:#a07a1e;">→ continúa el ${fd(e.continuaEn)}</span>`:''}${e.reprogramadoDe?`<br><span style="font-size:11px;color:#2c5f8a;">📅 reprogramado</span>`:''}</td>
+        <td><span class="badge ${bc(e.cuadrilla)}">${etiqueta}</span></td>
+        <td>${e.direccion}${tags}${e.continuaEn?`<br><span style="font-size:11px;color:#a07a1e;">→ continúa el ${fd(e.continuaEn)}</span>`:''}${e.reprogramadoDe?`<br><span style="font-size:11px;color:#2c5f8a;">📅 reprogramado</span>`:''}</td>
         <td style="text-align:center">
           <select class="estado-sel estado-${estado}" onchange="cambiarEstado('${e.id}', this.value)">
             <option value="pendiente" ${estado==='pendiente'?'selected':''}>⏳ En ejecución</option>
@@ -2240,6 +2518,7 @@ function renderTable(){
         </td>
         <td style="text-align:center">
           <button class="btn btn-o btn-sm" style="margin-bottom:4px;" onclick="editarEntrada('${e.id}')" title="Cambiar cuadrilla o dirección">✏️ Editar</button><br>
+          <button class="btn btn-o btn-sm" style="margin-bottom:4px;" onclick="abrirDerivar('${e.id}')" title="Derivar esta dirección a otra cuadrilla">➡️ Derivar</button><br>
           <button class="btn btn-d" onclick="deleteEntry('${e.id}')">✕</button>
         </td>
       </tr>`;
@@ -2267,6 +2546,8 @@ function renderHojas(){
   const grupos=ag(fil), keys=ok(grupos);
   cont.innerHTML=keys.map((cid,idx)=>{
     const dirs=grupos[cid], c=gc(cid);
+    const esDiaClimatico = dirs.length>0 && dirs.every(d=>d.climatico);
+    const tituloHoja = esDiaClimatico ? dispCuadrilla(dirs[0]) : c.label;
     return `
     <div class="hoja">
       <!-- Cabecera -->
@@ -2277,7 +2558,7 @@ function renderHojas(){
         </div>
         <div style="position:absolute;left:0;right:0;text-align:center;pointer-events:none;padding:0 20px;">
           <div class="hoja-org">Dirección de Ejecución en Red Vial</div>
-          <div class="hoja-tipo">${c.label}</div>
+          <div class="hoja-tipo">${tituloHoja}</div>
         </div>
         <div class="hoja-head-right">
           <div class="hoja-fecha-lbl">Planificación</div>
@@ -2320,6 +2601,64 @@ function renderHojas(){
 
 
 }
+
+// ── ESCOMBROS ──
+function escombrosSetSemana(){
+  const hoy = new Date();
+  const dia = hoy.getDay()||7;
+  const desde = new Date(hoy); desde.setDate(hoy.getDate()-dia+1);
+  const hasta = new Date(desde); hasta.setDate(desde.getDate()+6);
+  const fmt = d => d.toISOString().slice(0,10);
+  const elD=document.getElementById('esc-desde'), elH=document.getElementById('esc-hasta');
+  if(elD && !elD.value) elD.value = fmt(desde);
+  if(elH && !elH.value) elH.value = fmt(hasta);
+}
+window.escombrosSetSemana = escombrosSetSemana;
+
+function escombrosGetLista(){
+  const desde = document.getElementById('esc-desde').value;
+  const hasta = document.getElementById('esc-hasta').value;
+  if(!desde||!hasta) return [];
+  return entries.filter(e=>e.escombro && e.fecha>=desde && e.fecha<=hasta);
+}
+
+function renderEscombros(){
+  const lista = escombrosGetLista();
+  const cont = document.getElementById('esc-lista');
+  if(!lista.length){ cont.innerHTML = '<div class="es">Sin direcciones con escombro a levantar en el período.</div>'; return; }
+  cont.innerHTML = `<div class="tw"><table>
+    <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Dirección</th></tr></thead>
+    <tbody>${lista.map(e=>`<tr><td>${fd(e.fecha)}</td><td><span class="badge ${bc(e.cuadrilla)}">${dispCuadrilla(e)}</span></td><td>${e.direccion}</td></tr>`).join('')}</tbody>
+  </table></div>`;
+}
+window.renderEscombros = renderEscombros;
+
+function escombrosCopiarWA(){
+  const lista = escombrosGetLista();
+  if(!lista.length){ toast('No hay direcciones con escombro en el período', true); return; }
+  const desde = document.getElementById('esc-desde').value.split('-').reverse().join('/');
+  const hasta = document.getElementById('esc-hasta').value.split('-').reverse().join('/');
+  const periodo = desde===hasta ? desde : `${desde} al ${hasta}`;
+  const direcciones = [...new Set(lista.map(e=>e.direccion))];
+  let txt = `🏗️ *REMOCIÓN Y LIMPIEZA POST OBRA*\n`;
+  txt += `Dirección de Ejecución en Red Vial · Municipalidad de Lanús\n`;
+  txt += `📅 Semana: ${periodo}\n`;
+  txt += `${'─'.repeat(28)}\n\n`;
+  txt += `Se solicita el retiro de escombros en las siguientes ${direcciones.length} ${direcciones.length===1?'dirección':'direcciones'}:\n\n`;
+  direcciones.forEach(d=>{ txt += `• ${d}\n`; });
+  txt += `\n${'─'.repeat(28)}\nMunicipalidad de Lanús`;
+
+  navigator.clipboard.writeText(txt).then(()=>{
+    toast('📲 Mensaje copiado — pegalo en WhatsApp');
+  }).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('📲 Mensaje copiado — pegalo en WhatsApp');
+  });
+}
+window.escombrosCopiarWA = escombrosCopiarWA;
 
 // ══════════════════════════════════
 // CONTROL DE RUTA — hoja horizontal con mapa DIBUJADO (proyección real de
@@ -2603,7 +2942,13 @@ function copyResumenDia(){
     let s=`${emoji} *${titulo} - ${hoy}*\n${'═'.repeat(30)}\n`;
     ordenFinal.forEach(tipo=>{
       s+=`\n*${tipo.toUpperCase()}*\n`;
-      g[tipo].forEach(e=>{ s+=`✓ ${e.direccion}\n`; });
+      g[tipo].forEach(e=>{
+        s+=`✓ ${e.direccion}\n`;
+        if(e.equipo) s+=`   🚛 ${e.equipoDetalle||'Camión/máquina'}\n`;
+        if(e.material) s+=`   🧪 ${e.material}\n`;
+        if(e.escombro) s+=`   🧱 Escombro a levantar\n`;
+        if(e.observaciones) s+=`   📝 ${e.observaciones}\n`;
+      });
     });
     return s+'\n';
   }
@@ -2882,10 +3227,11 @@ function showPanel(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
-  const idx={carga:0,verificar:1,hojas:2,controlruta:3,ruta:4,enviar:5,mapa_semanal:6,informe:7,detallado:8,config:9};
+  const idx={carga:0,verificar:1,hojas:2,escombros:3,controlruta:4,ruta:5,enviar:6,mapa_semanal:7,informe:8,detallado:9,config:10};
   const el=document.getElementById('tab-'+name) || document.querySelectorAll('.tab')[idx[name]];
   if(el) el.classList.add('active');
   if(name==='hojas') renderHojas();
+  if(name==='escombros') { escombrosSetSemana(); renderEscombros(); }
   if(name==='controlruta') crRender();
   if(name==='ruta')  renderRuta();
   if(name==='enviar')renderEnviar();
@@ -3786,11 +4132,27 @@ function infSetPeriodo(tipo){
 }
 window.infSetPeriodo = infSetPeriodo;
 
+function infPoblarTipos(){
+  const sel = document.getElementById('inf-tipo');
+  if(!sel || sel.options.length>1) return;
+  TIPOS_INFORME.forEach(t=>{
+    const op=document.createElement('option'); op.value=t.label; op.textContent=t.label;
+    sel.appendChild(op);
+  });
+}
+
 function infGetEntradas(){
+  infPoblarTipos();
   const desde = document.getElementById('inf-desde').value;
   const hasta = document.getElementById('inf-hasta').value;
   if(!desde||!hasta){ toast('Seleccioná el período primero',true); return null; }
-  return entries.filter(e=>e.fecha>=desde && e.fecha<=hasta && e.cuadrilla!=='Emulsion');
+  let fil = entries.filter(e=>e.fecha>=desde && e.fecha<=hasta && e.cuadrilla!=='Emulsion');
+  const tipoSel = document.getElementById('inf-tipo') ? document.getElementById('inf-tipo').value : '';
+  if(tipoSel){
+    const tipo = TIPOS_INFORME.find(t=>t.label===tipoSel);
+    if(tipo) fil = fil.filter(e=>tipo.ids.includes(e.cuadrilla));
+  }
+  return fil;
 }
 
 function infPreview(){
@@ -3803,11 +4165,12 @@ function infPreview(){
   const pct  = total ? Math.round(term/total*100) : 0;
   const desde = document.getElementById('inf-desde').value.split('-').reverse().join('/');
   const hasta = document.getElementById('inf-hasta').value.split('-').reverse().join('/');
+  const tipoSel = document.getElementById('inf-tipo') ? document.getElementById('inf-tipo').value : '';
   const box = document.getElementById('inf-preview');
   const txt = document.getElementById('inf-preview-txt');
   box.style.display='block';
   txt.innerHTML = `
-    <strong>Período:</strong> ${desde} al ${hasta}<br>
+    <strong>Período:</strong> ${desde} al ${hasta}${tipoSel?` · <strong>Tipo:</strong> ${tipoSel}`:''}<br>
     <strong>Total:</strong> ${total} trabajos &nbsp;|&nbsp;
     <strong style="color:#166534;">✓ Terminados: ${term} (${pct}%)</strong> &nbsp;|&nbsp;
     <strong style="color:#92400e;">⏳ En ejecución: ${ejec}</strong>
@@ -3844,7 +4207,8 @@ function infCopiarWA(){
     return s+'\n';
   }
 
-  let txt =`*INFORME SEMANAL DE TRABAJOS VIALES*\n`;
+  const tipoSel = document.getElementById('inf-tipo') ? document.getElementById('inf-tipo').value : '';
+  let txt =`*INFORME${tipoSel?` DE ${tipoSel.toUpperCase()}`:' SEMANAL'} DE TRABAJOS VIALES*\n`;
   txt+=`Dirección de Ejecución en Red Vial · Municipalidad de Lanús\n`;
   txt+=`📅 Período: ${periodo}\n`;
   txt+=`${'━'.repeat(28)}\n\n`;

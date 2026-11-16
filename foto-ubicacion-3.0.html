@@ -892,6 +892,24 @@
     } catch (e) { /* en silencio */ }
     cFlushing = false;
   }
+  /* Diagnóstico oculto: tocar 5 veces seguidas el logo de arriba muestra el estado del envío a la plataforma */
+  var tapN = 0, tapT = 0;
+  async function diag() {
+    toast('Revisando el envío…');
+    var antes = -1, despues = -1;
+    try { antes = await ctx('readonly', function (st) { return st.count(); }); } catch (e) { /* ignorar */ }
+    lastErr = null;
+    await silentFlush();
+    try { despues = await ctx('readonly', function (st) { return st.count(); }); } catch (e) { /* ignorar */ }
+    var det = lastErr ? errText(lastErr) + ' [' + (lastErr.code || lastErr.message || lastErr) + ']' : (navigator.onLine === false ? 'Sin internet.' : 'Sin errores.');
+    toast('Fotos en cola: ' + antes + ' → ' + despues + '. ' + det);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 15000);
+  }
+  var logoEl = document.getElementById('barLogo');
+  if (logoEl) logoEl.addEventListener('click', function () {
+    var n = Date.now(); tapN = (n - tapT < 2500) ? tapN + 1 : 1; tapT = n;
+    if (tapN >= 5) { tapN = 0; diag(); }
+  });
   window.addEventListener('online', function () { setTimeout(silentFlush, 1500); });
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') setTimeout(silentFlush, 1500); });
   setInterval(silentFlush, 30000);

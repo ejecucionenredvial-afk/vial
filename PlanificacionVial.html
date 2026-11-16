@@ -1458,7 +1458,7 @@ async function addEntry(){
     const btnRetomar = document.getElementById('btnRetomarCadena');
     btnRetomar.style.display = puedeRetomar ? 'block' : 'none';
     if(puedeRetomar){
-      const cadena = dtCadenaCompleta(finalAbierta);
+      const cadena = dtEtapasConTrabajo(finalAbierta);
       const recorrido = cadena.map(e=>`${e.cuadrilla} (${fd(e.fecha)})`).join(' → ');
       msgEl.innerHTML = `<strong>${direccion}</strong><br>Ya tiene un trabajo en curso sin terminar:<br><em>${recorrido}</em><br><br>¿Retomás esa cadena con ${cuadrilla} para el ${fd(fecha)}, o la programás como entrada nueva?`;
     } else if(terminadas.length){
@@ -2097,6 +2097,15 @@ function dtCadenaCompleta(e){
     actual = prev;
   }
   return out;
+}
+// Igual que dtCadenaCompleta, pero sacando las etapas donde la cuadrilla no
+// llegó a intervenir — llegó, no era trabajo para ella y derivó directo, sin
+// marcar nada como terminado. Esas no deben contar como una etapa de trabajo.
+function dtEtapasConTrabajo(e){
+  const cadena = dtCadenaCompleta(e);
+  const sinIntervencion = x => x.derivadoA && (x.estado||(x.terminado?'terminada':'pendiente'))!=='terminada';
+  const filtrada = cadena.filter(x=>!sinIntervencion(x));
+  return filtrada.length ? filtrada : [e];
 }
 // Entrada "final" de la cadena de una dirección (la que no está superada por
 // otra): se usa para saber si una dirección ya cargada sigue abierta.
@@ -4242,13 +4251,13 @@ function infPrepararDatos(fil){
   const term  = filDedup.filter(e=>estad(e)==='terminada');
   const falta = filDedup.filter(e=>estad(e)==='incompleta');
   const ejec  = filDedup.filter(e=>estad(e)==='pendiente');
-  const etapas = filDedup.reduce((s,e)=>s+dtCadenaCompleta(e).length,0);
+  const etapas = filDedup.reduce((s,e)=>s+dtEtapasConTrabajo(e).length,0);
   return {filDedup, term, falta, ejec, etapas};
 }
-// Texto del recorrido de una dirección (si tuvo más de una etapa)
+// Texto del recorrido de una dirección (si tuvo más de una etapa con trabajo real)
 function infCadenaTexto(e, sep){
   sep = sep || ' → ';
-  const cadena = dtCadenaCompleta(e);
+  const cadena = dtEtapasConTrabajo(e);
   if(cadena.length<2) return '';
   return cadena.map(x=>`${x.cuadrilla} (${fd(x.fecha)})`).join(sep);
 }
@@ -4381,7 +4390,7 @@ function infGenerarPDF(){
   function tarjeta(e){
     const estado = e.estado||(e.terminado?'terminada':'pendiente');
     const tipo = TIPOS_INFORME.find(t=>t.ids.includes(e.cuadrilla));
-    const cadena = dtCadenaCompleta(e);
+    const cadena = dtEtapasConTrabajo(e);
     const chips = cadena.map((x,i)=>{
       const esUltimo = i===cadena.length-1;
       return `<span style="display:inline-block;background:${esUltimo?'#1a3a5c':'#e8f0f8'};color:${esUltimo?'#fff':'#1a3a5c'};border-radius:10px;padding:2px 8px;font-size:9px;font-weight:600;margin:1px 0;">${x.cuadrilla} · ${fd(x.fecha)}</span>`

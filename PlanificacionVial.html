@@ -1322,6 +1322,90 @@ let unsubAct     = null;
 let unsubConfig  = null;
 
 // ══════════════════════════════════
+// CHOFERES — flota en tiempo real (SOLO LECTURA)
+// Segunda conexión a Firebase, independiente de la de Vial.
+// ══════════════════════════════════
+var CHOFERES_CONFIG = {
+  apiKey: "AIzaSyAywfgcalMq_5VpnnN3JoEjd-2yYYmTGhk",
+  authDomain: "choferes-2914c.firebaseapp.com",
+  projectId: "choferes-2914c",
+  storageBucket: "choferes-2914c.firebasestorage.app",
+  messagingSenderId: "732040002252",
+  appId: "1:732040002252:web:f3f63faff34bccfea1e069"
+};
+var CHOFERES_LECTOR = { email: "lector-vial@cmm.com", pass: "lector-vial@cmm.com" };
+var chApp = null, chAuth = null, chDb = null;
+var chUnsubs = [], chDespSubs = {}, chOk = false, chErrMsg = '';
+var chof = { units: [], crews: [], desp: {} };
+
+function chNorm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function chEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function chErr(e){ chErrMsg = 'No se pudo leer la flota de Choferes ('+((e&&e.code)||'error')+')'; console.warn('Choferes:', e); try{ renderEnviar(); }catch(_){} }
+function chofRefrescar(){ chErrMsg=''; try{ renderEnviar(); }catch(e){ console.warn(e); } }
+
+function chofDetener(){
+  chUnsubs.forEach(function(f){ try{f();}catch(e){} }); chUnsubs = [];
+  Object.keys(chDespSubs).forEach(function(k){ try{chDespSubs[k]();}catch(e){} }); chDespSubs = {};
+  chOk = false; chof = { units: [], crews: [], desp: {} };
+  if(chAuth && chAuth.currentUser){ signOut(chAuth).catch(function(){}); }
+}
+async function chofIniciar(){
+  try{
+    if(!chApp){
+      chApp = initializeApp(CHOFERES_CONFIG, 'choferes');
+      chAuth = getAuth(chApp);
+      chDb = initializeFirestore(chApp, {});
+    }
+    if(!chAuth.currentUser) await signInWithEmailAndPassword(chAuth, CHOFERES_LECTOR.email, CHOFERES_LECTOR.pass);
+    chOk = true;
+    chUnsubs.push(onSnapshot(collection(chDb,'unidades'), function(s){ chof.units = s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); chofRefrescar(); }, chErr));
+    chUnsubs.push(onSnapshot(collection(chDb,'cuadrillas'), function(s){ chof.crews = s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); chofRefrescar(); }, chErr));
+    var ef = document.getElementById('env-fecha');
+    chofSubDesp((ef && ef.value) || today());
+  }catch(e){ chOk = false; chErr(e); }
+}
+function chofSubDesp(f){
+  if(!chDb || !chOk || !f) return;
+  Object.keys(chDespSubs).forEach(function(k){ if(k!==f){ chDespSubs[k](); delete chDespSubs[k]; delete chof.desp[k]; } });
+  if(chDespSubs[f]) return;
+  chDespSubs[f] = onSnapshot(doc(chDb,'despliegue',f), function(s){
+    var d = s.exists() ? s.data() : null;
+    chof.desp[f] = (d && d.asig) ? d.asig : {};
+    chofRefrescar();
+  }, chErr);
+}
+var CH_ORD = {'Vehículo':0,'Carretón':1,'Maquinaria':2};
+// Unidades asignadas a una cuadrilla de Vial en una fecha (se vincula por nombre)
+function chofDeCuadrilla(cid, fecha){
+  if(!chOk) return [];
+  var c = gc(cid), keys = [chNorm(cid), chNorm(c.label)];
+  var crew = chof.crews.filter(function(k){ return keys.indexOf(chNorm(k.nombre))>=0; })[0];
+  if(!crew) return [];
+  var dest = 'crew:'+crew.id, asig = chof.desp[fecha] || {}, out = [];
+  chof.units.forEach(function(u){
+    var l = asig[u.id] || [];
+    var a = l.filter(function(x){ return x.dest===dest; })[0];
+    if(a) out.push({ u:u, a:a, otros:l.filter(function(x){ return x.dest!==dest; }) });
+  });
+  out.sort(function(x,y){ return ((CH_ORD[x.u.tipo]||0)-(CH_ORD[y.u.tipo]||0)) || String(x.u.codigo||'').localeCompare(String(y.u.codigo||''),'es',{numeric:true}); });
+  return out;
+}
+function chofDestNombre(dest){
+  if(String(dest).indexOf('crew:')===0){ var k = chof.crews.filter(function(c){ return 'crew:'+c.id===dest; })[0]; return k ? k.nombre : 'otra cuadrilla'; }
+  return String(dest).replace(/^dir:/,'');
+}
+function chofLinea(e){
+  var u = e.u;
+  var ic = u.tipo==='Maquinaria' ? '🚜' : (u.tipo==='Carretón' ? '🚚' : (/camioneta|utilitario/i.test(u.unidad||'') ? '🛻' : '🚛'));
+  var mm = [u.marca,u.modelo].filter(Boolean).join(' ');
+  var s = ic+' '+[u.codigo,u.unidad,mm].filter(Boolean).join(' ');
+  if(u.patente) s += ' · '+u.patente;
+  if(e.a.chofer) s += ' — '+e.a.chofer;
+  if(e.otros.length) s += ' 🔁 (también: '+e.otros.map(function(x){ return chofDestNombre(x.dest); }).join(', ')+')';
+  return s;
+}
+
+// ══════════════════════════════════
 // CONFIG — 15 cuadrillas
 // ══════════════════════════════════
 const JEFE = "Fabian Funes, Roberto Retamar";
@@ -3220,19 +3304,23 @@ window.limpiarImport = limpiarImport;
 // ── ENVIAR ──
 function renderEnviar(){
   const fecha=document.getElementById('env-fecha').value;
+  chofSubDesp(fecha);
   const fil=entries.filter(e=>e.fecha===fecha && e.cuadrilla!=='Emulsion');
   const grupos=ag(fil), keys=ok(grupos);
   const prev=document.getElementById('env-preview');
   if(!keys.length){prev.innerHTML='<div class="es">Sin entradas para esta fecha.</div>';}
   else{prev.innerHTML=keys.map(cid=>{
     const c=gc(cid);
-    return `<div class="env-block"><h3>${c.label||cid}</h3>${grupos[cid].map(e=>`<div class="env-dir">${e.direccion}</div>`).join('')}</div>`;
+    const flota=chofDeCuadrilla(cid,fecha).map(x=>`<div class="env-dir" style="color:#2c5f8a;">${chEsc(chofLinea(x))}</div>`).join('');
+    return `<div class="env-block"><h3>${c.label||cid}</h3>${grupos[cid].map(e=>`<div class="env-dir">${e.direccion}</div>`).join('')}${flota}</div>`;
   }).join('');}
+  if(chErrMsg) prev.innerHTML=`<div class="es" style="color:#b32d20;">⚠️ ${chEsc(chErrMsg)}. El texto sale sin el detalle de la flota.</div>`+prev.innerHTML;
   let txt=`🗓️ *PLANIFICACIÓN - ${fd(fecha)}*\n${'═'.repeat(30)}\n\n`;
   keys.forEach(cid=>{
     const c=gc(cid);
     txt+=`*${(c.label||cid).toUpperCase()}*\n`;
     grupos[cid].forEach(e=>{txt+=`📍 ${e.direccion}\n`;});
+    chofDeCuadrilla(cid,fecha).forEach(x=>{txt+=`${chofLinea(x)}\n`;});
     txt+='\n';
   });
   document.getElementById('env-texto').value=txt;
@@ -3735,6 +3823,7 @@ function aplicarVisibilidadAdmin(){
 // ESTADO DE SESIÓN — decide qué pantalla mostrar
 // ══════════════════════════════════
 onAuthStateChanged(auth, async (user)=>{
+  chofDetener();
   if(unsubEntries){ unsubEntries(); unsubEntries=null; }
   if(unsubCalles){ unsubCalles(); unsubCalles=null; }
   if(unsubConfig){ unsubConfig(); unsubConfig=null; }
@@ -3768,6 +3857,7 @@ onAuthStateChanged(auth, async (user)=>{
     document.getElementById('hdrUsuario').textContent = `👤 ${currentUser.nombre}${currentUser.rol==='admin'?' (admin)':''}`;
     aplicarVisibilidadAdmin();
     iniciarSyncEntries();
+    chofIniciar();
     iniciarSyncConfig();
     iniciarSyncCalles();
     if(currentUser.rol==='admin') iniciarPanelAdmin();

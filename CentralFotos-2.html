@@ -851,9 +851,14 @@ function paintCer(c) {
 }
 /* Sube una foto (con su flyer) a la carpeta del SAT */
 async function subirFoto(blob, stamp, nombre, token) {
+  /* Sin banner: solo la foto, con el giro que se le haya dado */
   const cv = document.createElement("canvas");
   const full = await loadImg(blob);
-  drawStamp(cv, full, stamp, 4096);
+  const g = rotar(full, ((stamp.rotFoto || 0) + (stamp.rotTodo || 0)) % 4);
+  const k = Math.min(1, 4096 / Math.max(g.w, g.h));
+  cv.width = Math.round(g.w * k); cv.height = Math.round(g.h * k);
+  const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.drawImage(g.el, 0, 0, cv.width, cv.height);
   const out = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.93));
   return subirADrive(out, nombre, token);
 }

@@ -390,7 +390,8 @@ function ficha(id) {
     tieneFoto: !!f, img: f ? f.img : null
   };
 }
-const etapasDe = (id) => (etapas.get(id) || []).filter((e) => !(e.derivadoA && (e.estado || (e.terminado ? "terminada" : "pendiente")) !== "terminada"));
+/* Se ignoran las etapas superadas: derivadas a otra cuadrilla sin haber trabajado, o reprogramadas (incompleta + continuaEn) */
+const etapasDe = (id) => (etapas.get(id) || []).filter((e) => { const st = e.estado || (e.terminado ? "terminada" : "pendiente"); return !(e.derivadoA && st !== "terminada") && !(st === "incompleta" && e.continuaEn); });
 const estadoEtapa = (e) => e.estado || (e.terminado ? "terminada" : "pendiente");
 function cuadrillaActual(id) {
   const vivas = etapasDe(id).filter((e) => estadoEtapa(e) !== "terminada");

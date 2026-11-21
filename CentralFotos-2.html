@@ -988,6 +988,7 @@ onAuthStateChanged(auth, async (user) => {
 TIPOS.forEach((t) => $("bTipo").appendChild(el("option", { value: t, text: t })));
 view("aLoading");
 updateCount();
+if (location.hash === "#cerrar") verPane("cer");
 </script>
 </body>
 </html>

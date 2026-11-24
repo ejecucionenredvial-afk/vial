@@ -131,6 +131,8 @@
   .pm-empty { padding:34px 12px; text-align:center; color: var(--muted); }
   .pm-foot { padding: 12px 18px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; background: var(--surface, #fff); }
   .pm-foot .btn { min-height:44px; padding:0 18px; }
+  .asig { border:1px dashed var(--cyan); border-radius:10px; padding:10px; display:grid; gap:8px; background: rgba(18,161,196,.05); }
+  .asig-t { font-size:13px; font-weight:700; color: var(--cyan-d); } .asig-g { display:grid; grid-template-columns: 1.4fr 1fr; gap:8px; }
   .ro input, .ro select, .ro textarea { background:#f6f8fa; }
   .f textarea { min-height:56px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; width:100%; resize:vertical; font:inherit; }
   .cerrado .thumb { cursor: default; }
@@ -213,7 +215,7 @@ import {
   signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp
+  getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -490,6 +492,30 @@ function addCard(id) {
   rot.appendChild(el("span", { text: "Girar foto" }));
   const bl = el("button", { type: "button", text: "↺" }), br = el("button", { type: "button", text: "↻" });
   rot.appendChild(bl); rot.appendChild(br);
+  const selCu = el("select"), inFecha = el("input", { type: "date" });
+  const bAsig = el("button", { class: "btn primary", type: "button", text: "➕ Agregar a planificación" });
+  const asig = el("div", { class: "asig" }, [el("div", { class: "asig-t", text: "Asignar a una cuadrilla" }),
+    el("div", { class: "asig-g" }, [el("label", { class: "f" }, [el("span", { text: "Cuadrilla" }), selCu]), el("label", { class: "f" }, [el("span", { text: "Fecha" }), inFecha])]), bAsig]);
+  bAsig.addEventListener("click", async () => {
+    const f = ficha(id), cu = selCu.value, fecha = inFecha.value;
+    if (!f.direccion.trim()) { toast("Primero cargá la dirección."); return; }
+    if (!cu) { toast("Elegí la cuadrilla."); return; }
+    if (!fecha) { toast("Elegí la fecha."); return; }
+    if (etapasDe(id).some((e) => e.cuadrilla === cu && e.fecha === fecha && estadoEtapa(e) !== "terminada")) { toast("Esa cuadrilla ya tiene este trabajo ese día."); return; }
+    bAsig.disabled = true;
+    try {
+      await guardar(id, {});
+      await addDoc(collection(db, COL_PLAN), {
+        fecha, cuadrilla: cu, direccion: f.direccion, calle: f.direccion, entre1: "", entre2: "",
+        coordsCalle: f.pos ? { lat: f.pos.lat, lng: f.pos.lon } : null, coordsEntre1: null, coordsEntre2: null,
+        estado: "pendiente", terminado: false, observaciones: (f.que || "") + (f.obs ? (f.que ? " · " : "") + f.obs : ""),
+        trabajoId: id, creadoPor: auth.currentUser && auth.currentUser.email ? auth.currentUser.email : currentUser.nombre, creadoEn: serverTimestamp()
+      });
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
+      toast("Agregado a Planificación: " + cu + " · " + m[3] + "/" + m[2]);
+    } catch (e) { toast("No se pudo agregar: " + e.message, null, null, 8000); }
+    bAsig.disabled = false;
+  });
   const acts = el("div", { class: "acts" });
   const bGps = el("button", { class: "btn", type: "button", text: "Dirección por GPS" });
   const bDel = el("button", { class: "btn danger", type: "button", text: "Descartar" });
@@ -497,9 +523,9 @@ function addCard(id) {
   bTerm.addEventListener("click", () => marcarTerminado(id));
   const actsT = el("div", { class: "acts" }, [bTerm]);
   acts.appendChild(bGps); acts.appendChild(bDel);
-  [fDir, fQue, fTipo, fObs, cuad, et, meta, rot, actsT, acts, saved].forEach((x) => body.appendChild(x));
+  [fDir, fQue, fTipo, fObs, cuad, et, asig, meta, rot, actsT, acts, saved].forEach((x) => body.appendChild(x));
   root.appendChild(thumb); root.appendChild(noFoto); root.appendChild(top); root.appendChild(body);
-  const c = { root, actsT, cv, thumb, noFoto, noFotoTxt, bFoto,  pick, inDir, selQue, selTipo, inObs, cuad, et, meta, badges, rot, acts, saved, timer: null };
+  const c = { root, asig, selCu, inFecha, actsT, cv, thumb, noFoto, noFotoTxt, bFoto,  pick, inDir, selQue, selTipo, inObs, cuad, et, meta, badges, rot, acts, saved, timer: null };
   cards.set(id, c);
   $("grid").appendChild(root);
 
@@ -558,6 +584,13 @@ function refresh(id, force) {
   if (document.activeElement !== c.selQue) c.selQue.value = f.que;
   if (document.activeElement !== c.selTipo) c.selTipo.value = f.tipo;
   [c.inDir, c.selQue, c.selTipo, c.inObs].forEach((x) => { x.disabled = !edit || f.estado === "cerrado"; });
+  c.asig.hidden = !edit || f.estado === "cerrado";
+  if (!c.asig.hidden) {
+    const lista = f.tipo === "Emulsión" ? ["Emulsion"] : (f.tipo ? CUADRILLAS.filter((x) => tipoDeCuadrilla(x) === f.tipo) : CUADRILLAS);
+    const key = lista.join("|");
+    if (c.selCu.dataset.k !== key) { const v = c.selCu.value; opts(c.selCu, lista.length ? lista : CUADRILLAS, "Elegí…"); c.selCu.dataset.k = key; c.selCu.value = lista.indexOf(v) >= 0 ? v : ""; }
+    if (!c.inFecha.value) { const d = new Date(); c.inFecha.value = d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate(); }
+  }
   c.actsT.hidden = !edit || f.estado === "cerrado" || !etapasDe(id).length;
   c.acts.hidden = !edit || f.estado === "cerrado"; c.rot.hidden = !edit || !f.tieneFoto; c.pick.hidden = !edit || !f.tieneFoto;
   const [st, cls] = statusDe(id, f);

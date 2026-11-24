@@ -133,6 +133,8 @@
     <select id="fCuad" aria-label="Cuadrilla"><option value="">Todas las cuadrillas</option></select>
     <select id="fTipo" aria-label="Tipo de trabajo"><option value="">Todos los tipos</option></select>
     <span class="grow"></span>
+    <button class="btn" id="bUp" type="button" title="Subir fotos que llegaron por WhatsApp">📎 Subir fotos</button>
+    <input type="file" id="upFile" accept="image/*" multiple hidden>
     <label class="chk" id="allWrap"><input type="checkbox" id="all"> Todas</label>
     <select id="bTipo" aria-label="Tipo para las elegidas"><option value="">Tipo…</option></select>
     <select id="bQue" aria-label="Qué es para las elegidas"><option value="">¿Qué es?…</option></select>
@@ -672,6 +674,95 @@ function escuchar() {
   }, onErr("la planificación")));
 }
 
+
+/* ═════════ Subir fotos desde la PC o el celular (las que llegan por WhatsApp) ═════════ */
+const UP_COL = "fotos_relevamiento", UP_PARTE = 700000;
+async function leerExif(file) {
+  try {
+    const v = new DataView(await file.slice(0, 262144).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return {};
+    let off = 2;
+    while (off + 4 < v.byteLength) {
+      const mk = v.getUint16(off), len = v.getUint16(off + 2);
+      if (mk === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) {
+        const t = off + 10, le = v.getUint16(t) === 0x4949;
+        const u16 = (o) => v.getUint16(t + o, le), u32 = (o) => v.getUint32(t + o, le);
+        const ifd = (o) => { const n = u16(o), r = {}; for (let i = 0; i < n; i++) { const e = o + 2 + i * 12; r[u16(e)] = { cnt: u32(e + 4), vo: e + 8 }; } return r; };
+        const str = (e) => { const o = e.cnt > 4 ? u32(e.vo) : e.vo; let s = ""; for (let i = 0; i < e.cnt; i++) { const c = v.getUint8(t + o + i); if (c) s += String.fromCharCode(c); } return s; };
+        const out = {}, i0 = ifd(u32(4));
+        if (i0[0x8769]) {
+          const ex = ifd(u32(i0[0x8769].vo)), e = ex[0x9003] || ex[0x9004];
+          if (e) { const m = /(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(str(e)); if (m) out.when = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime(); }
+        }
+        if (i0[0x8825]) {
+          const g = ifd(u32(i0[0x8825].vo));
+          const rat = (e) => { const o = u32(e.vo); const r = []; for (let k = 0; k < 3; k++) r.push(u32(o + k * 8) / (u32(o + k * 8 + 4) || 1)); return r[0] + r[1] / 60 + r[2] / 3600; };
+          if (g[2] && g[4]) {
+            let la = rat(g[2]), lo = rat(g[4]);
+            if (g[1] && str(g[1])[0] === "S") la = -la;
+            if (g[3] && str(g[3])[0] === "W") lo = -lo;
+            if (isFinite(la) && isFinite(lo)) { out.lat = la; out.lon = lo; }
+          }
+        }
+        return out;
+      }
+      if ((mk & 0xFF00) !== 0xFF00) break;
+      off += 2 + len;
+    }
+  } catch (e) { /* sin EXIF */ }
+  return {};
+}
+/* Las fotos de WhatsApp no traen EXIF, pero el nombre trae la fecha: IMG-20261120-WA0001.jpg o "WhatsApp Image 2026-11-20 at 10.15.23.jpeg" */
+function fechaDeNombre(nombre) {
+  const m = /(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/.exec(nombre);
+  if (!m || +m[2] < 1 || +m[2] > 12 || +m[3] < 1 || +m[3] > 31) return 0;
+  const h = /(\d{2})[.:](\d{2})[.:](\d{2})/.exec(nombre.slice(m.index + 8));
+  return new Date(+m[1], +m[2] - 1, +m[3], h ? +h[1] : 12, h ? +h[2] : 0, h ? +h[3] : 0).getTime();
+}
+async function subirUna(file, n) {
+  const ex = await leerExif(file);
+  const when = ex.when || fechaDeNombre(file.name) || file.lastModified || Date.now();
+  const url = URL.createObjectURL(file);
+  let img;
+  try { img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("no se pudo leer la imagen")); i.src = url; }); }
+  finally { URL.revokeObjectURL(url); }
+  const k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  let b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
+  if (b.size > 1500000) b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.68));
+  const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = () => rej(new Error("no se pudo leer")); fr.readAsDataURL(b); });
+  const id = "r" + Date.now() + n + Math.random().toString(36).slice(2, 5);
+  const np = Math.ceil(b64.length / UP_PARTE);
+  for (let i = 0; i < np; i++) await setDoc(doc(db, UP_COL, id, "partes", String(i).padStart(3, "0")), { n: i, d: b64.slice(i * UP_PARTE, (i + 1) * UP_PARTE) });
+  /* El documento principal va al final: la central lo ve recién cuando ya están todas las partes */
+  await setDoc(doc(db, UP_COL, id), {
+    partes: np, mime: "image/jpeg", estado: "pendiente", app: "archivo",
+    lat: ex.lat == null ? null : ex.lat, lon: ex.lon == null ? null : ex.lon, acc: null, posT: null,
+    takenAt: when, address: "", uid: currentUser.uid, creadoEn: serverTimestamp()
+  });
+}
+let subiendo = false;
+async function subirArchivos(files) {
+  const lista = [...files].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name));
+  if (!lista.length) { toast("Elegí fotos (JPG o PNG)."); return; }
+  if (!currentUser) return;
+  if (subiendo) { toast("Ya se están subiendo fotos. Esperá que termine."); return; }
+  subiendo = true; let ok = 0;
+  for (let i = 0; i < lista.length; i++) {
+    toast("Subiendo " + (i + 1) + " de " + lista.length + "…", null, null, 120000);
+    try { await subirUna(lista[i], i); ok++; }
+    catch (e) { console.warn(e); toast("No se pudo subir " + lista[i].name + ": " + e.message, null, null, 8000); await new Promise((r) => setTimeout(r, 1800)); }
+  }
+  subiendo = false;
+  toast(ok === lista.length ? "Se " + (ok === 1 ? "subió 1 foto" : "subieron " + ok + " fotos") + "." : "Se subieron " + ok + " de " + lista.length + ".");
+}
+$("bUp").addEventListener("click", () => $("upFile").click());
+$("upFile").addEventListener("change", () => { const f = [...$("upFile").files]; $("upFile").value = ""; subirArchivos(f); });
+document.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].indexOf("Files") >= 0) e.preventDefault(); });
+document.addEventListener("drop", (e) => { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); subirArchivos(e.dataTransfer.files); } });
+
 /* ───────── Sesión ───────── */
 const view = (id) => { ["aLoading", "aLogin", "aSignup", "aPending"].forEach((v) => { $(v).hidden = v !== id; }); };
 const AERR = {
@@ -720,7 +811,7 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = { uid: user.uid, nombre: d.nombre, rol: d.rol };
     $("auth").hidden = true; $("who").hidden = false;
     $("whoName").textContent = "👤 " + d.nombre + (d.rol === "admin" ? "" : " (solo lectura)");
-    ["allWrap", "bTipo", "bQue", "bApply", "bRotL", "bRotR"].forEach((i) => { $(i).hidden = d.rol !== "admin"; });
+    ["bUp", "allWrap", "bTipo", "bQue", "bApply", "bRotL", "bRotR"].forEach((i) => { $(i).hidden = d.rol !== "admin"; });
     escuchar();
   } catch (e) { $("auth").hidden = false; view("aLogin"); $("liErr").textContent = "No se pudo verificar tu cuenta: " + e.message; }
 });

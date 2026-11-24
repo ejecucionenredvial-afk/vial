@@ -107,6 +107,30 @@
   .etapa { font-size:12px; padding:3px 9px; border-radius:6px; background:#eef3f6; border:1px solid var(--line); }
   .etapa.terminada { background: var(--okbg); border-color:#9bd3b4; }
   .etapa.pendiente { background: var(--warnbg); border-color:#e7cd8b; }
+  .pm { background: var(--surface, #fff); color: var(--ink); border-radius: 16px; width: 100%; max-width: 640px; max-height: 94dvh; display: flex; flex-direction: column; overflow: hidden; text-align: left; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  .pm-head { padding: 16px 18px 10px; display:flex; gap:10px; align-items:flex-start; }
+  .pm-head h2 { margin:0; font-size:19px; } .pm-head p { margin:3px 0 0; font-size:13px; color: var(--muted); }
+  .pm-head .pm-x { margin-left:auto; border:0; background:transparent; font-size:26px; line-height:1; color: var(--muted); cursor:pointer; padding:0 4px; }
+  .pm-filt { padding: 10px 18px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background: var(--bg); display:grid; gap:10px; }
+  .pm-filt .g { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .pm-filt .g label:nth-child(3) { grid-column: 1 / -1; }
+  .pm-filt label { display:block; margin:0; font-size:12px; font-weight:600; color: var(--muted); }
+  .pm-filt input, .pm-filt select { width:100%; height:40px; margin-top:3px; padding:0 8px; border:1px solid var(--line); border-radius:8px; background: var(--surface, #fff); color: var(--ink); font:inherit; }
+  .pm-quick { display:flex; flex-wrap:wrap; gap:6px; }
+  .pm-quick button { border:1px solid var(--line); background: var(--surface, #fff); color: var(--ink); border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .pm-quick button.on { background: var(--cyan); border-color: var(--cyan); color:#fff; font-weight:600; }
+  .pm-bar { padding: 8px 18px; display:flex; align-items:center; gap:10px; font-size:13px; color: var(--muted); }
+  .pm-bar .sp { flex:1; } .pm-bar button { border:0; background:transparent; color: var(--cyan-d); font:inherit; font-weight:600; cursor:pointer; padding:4px 2px; }
+  .pm-list { overflow:auto; padding: 0 14px 10px; flex:1; min-height:120px; }
+  .pm-row { display:flex; gap:12px; align-items:flex-start; padding:11px 12px; margin:0 0 8px; border:1px solid var(--line); border-radius:12px; cursor:pointer; background: var(--surface, #fff); }
+  .pm-row.on { border-color: var(--cyan); background: rgba(18,161,196,.08); }
+  .pm-row input { width:22px; height:22px; margin:2px 0 0; flex:none; accent-color: var(--cyan); }
+  .pm-row .t { font-weight:700; font-size:15px; } .pm-row .tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .pm-row .et { font-size:12px; padding:3px 9px; border-radius:6px; background:#eef3f6; border:1px solid var(--line); color:#2b3037; }
+  .pm-row .nv { margin-top:6px; font-size:12px; font-weight:600; color:#14633b; } .pm-row .nv.ex { color:#8a5a00; }
+  .pm-empty { padding:34px 12px; text-align:center; color: var(--muted); }
+  .pm-foot { padding: 12px 18px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; background: var(--surface, #fff); }
+  .pm-foot .btn { min-height:44px; padding:0 18px; }
   .ro input, .ro select, .ro textarea { background:#f6f8fa; }
   .f textarea { min-height:56px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; width:100%; resize:vertical; font:inherit; }
   .cerrado .thumb { cursor: default; }
@@ -794,8 +818,8 @@ const tipoDeCuadrilla = (c) => {
 async function traerDePlan() {
   const b = $("bPlan"); b.disabled = true;
   try {
-    const d0 = new Date(Date.now() - 15 * 86400000), pad = (n) => (n < 10 ? "0" : "") + n;
-    const desde = d0.getFullYear() + "-" + pad(d0.getMonth() + 1) + "-" + pad(d0.getDate());
+    const d1 = (d) => d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate();
+    const desde = d1(new Date(Date.now() - 15 * 86400000));
     const snap = await getDocs(query(collection(db, COL_PLAN), where("fecha", ">=", desde)));
     const grupos = new Map();
     snap.docs.forEach((x) => {
@@ -812,20 +836,63 @@ async function traerDePlan() {
     fichaIds().forEach((id) => { const f = ficha(id); if (f.estado !== "cerrado") existentes.set(normDir(f.direccion), id); });
     grupos.forEach((g) => { g.ents.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))); g.existente = existentes.get(g.k) || null; });
     const lista = [...grupos.values()].sort((a, b) => String(a.ents[0].fecha).localeCompare(String(b.ents[0].fecha)) || a.dir.localeCompare(b.dir));
-    if (!lista.length) { toast("No hay direcciones nuevas en Planificación (de los últimos 15 días en adelante)."); return; }
+    if (!lista.length) { toast("No hay direcciones nuevas en Planificación."); return; }
     const ov = el("div", { class: "viewer", role: "dialog", "aria-label": "Traer de planificación" });
-    const box = el("div", { class: "auth-box", style: "max-height:86vh;overflow:auto;max-width:560px" }, [el("h2", { text: "Direcciones de Planificación sin ficha" })]);
-    const fe = (e) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(e.fecha || ""); return m ? m[3] + "/" + m[2] : "s/f"; };
-    const filas = lista.map((g) => {
-      const cb = el("input", { type: "checkbox" }); cb.checked = true;
-      const info = el("div", {}, [el("strong", { text: g.dir }), el("div", { class: "hint", text: g.ents.map((e) => (e.cuadrilla || "?") + " · " + fe(e)).join("  |  ") + (g.existente ? "  →  se vincula a una ficha que ya existe" : "") })]);
-      box.appendChild(el("label", { style: "display:flex;gap:10px;align-items:flex-start;margin:8px 0;text-align:left" }, [cb, info]));
-      return { g, cb };
-    });
+    const iso = (d) => d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate();
+    const sumar = (n) => iso(new Date(Date.now() + n * 86400000));
+    const fDesde = el("input", { type: "date" }), fHasta = el("input", { type: "date" }), fTipo = el("select");
+    opts(fTipo, TIPOS.filter((t) => t !== "Emulsión"), "Todos");
+    const rangos = [
+      ["Hoy", () => [sumar(0), sumar(0)]], ["Mañana", () => [sumar(1), sumar(1)]],
+      ["Esta semana", () => { const d = new Date(), k = (7 - d.getDay()) % 7; return [sumar(0), sumar(k)]; }],
+      ["Desde hoy", () => [sumar(0), ""]], ["Todo", () => ["", ""]]
+    ];
+    const quick = el("div", { class: "pm-quick" });
+    const qb = rangos.map((r) => { const b = el("button", { type: "button", text: r[0] }); b.addEventListener("click", () => { const v = r[1](); fDesde.value = v[0]; fHasta.value = v[1]; render(); }); quick.appendChild(b); return { b, r }; });
+    fDesde.value = sumar(0);
+    const cuenta = el("span"), listaEl = el("div", { class: "pm-list" });
+    const bTodas = el("button", { type: "button", text: "Todas" }), bNinguna = el("button", { type: "button", text: "Ninguna" });
     const bOk = el("button", { class: "btn primary", type: "button", text: "Crear fichas" }), x = el("button", { class: "btn", type: "button", text: "Cancelar" });
-    x.addEventListener("click", () => ov.remove());
+    const xx = el("button", { class: "pm-x", type: "button", "aria-label": "Cerrar", text: "×" });
+    const box = el("div", { class: "pm" }, [
+      el("div", { class: "pm-head" }, [el("div", {}, [el("h2", { text: "Traer de planificación" }), el("p", { text: "Elegí las direcciones que ya cargaste en Planificación para crear su ficha. Después le agregás la foto." })]), xx]),
+      el("div", { class: "pm-filt" }, [quick, el("div", { class: "g" }, [el("label", {}, [el("span", { text: "Desde" }), fDesde]), el("label", {}, [el("span", { text: "Hasta" }), fHasta]), el("label", {}, [el("span", { text: "Tipo de trabajo" }), fTipo])])]),
+      el("div", { class: "pm-bar" }, [cuenta, el("span", { class: "sp" }), bTodas, bNinguna]),
+      listaEl, el("div", { class: "pm-foot" }, [x, bOk])
+    ]);
+    const dia = (e) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(e.fecha || ""); if (!m) return "s/f"; const w = new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("es-AR", { weekday: "short" }).replace(".", ""); return w + " " + m[3] + "/" + m[2]; };
+    const marcado = new Map(); let filas = [];
+    const resumen = () => {
+      const n = filas.filter((f) => f.cb.checked).length, nf = filas.filter((f) => f.cb.checked && !f.g.existente).length, nv = n - nf;
+      cuenta.textContent = filas.length ? filas.length + (filas.length === 1 ? " dirección" : " direcciones") + " · " + n + " elegida" + (n === 1 ? "" : "s") : "";
+      bOk.textContent = !n ? "Elegí al menos una" : nv && !nf ? "Vincular " + nv + (nv === 1 ? " ficha" : " fichas") : "Crear " + nf + (nf === 1 ? " ficha" : " fichas") + (nv ? " + vincular " + nv : "");
+      bOk.disabled = !n;
+      filas.forEach((f) => f.row.classList.toggle("on", f.cb.checked));
+    };
+    const render = () => {
+      listaEl.innerHTML = ""; filas = [];
+      qb.forEach((q) => { const v = q.r[1](); q.b.classList.toggle("on", v[0] === fDesde.value && v[1] === fHasta.value); });
+      lista.forEach((g) => {
+        const ents = g.ents.filter((e) => (!fDesde.value || String(e.fecha) >= fDesde.value) && (!fHasta.value || String(e.fecha) <= fHasta.value) && (!fTipo.value || tipoDeCuadrilla(e.cuadrilla) === fTipo.value));
+        if (!ents.length) return;
+        const cb = el("input", { type: "checkbox" }); cb.checked = marcado.has(g.k) ? marcado.get(g.k) : true;
+        const row = el("label", { class: "pm-row" }, [cb, el("div", {}, [
+          el("div", { class: "t", text: g.dir }),
+          el("div", { class: "tags" }, ents.map((e) => el("span", { class: "et", text: (e.cuadrilla || "?") + " · " + dia(e) }))),
+          el("div", { class: "nv" + (g.existente ? " ex" : ""), text: g.existente ? "Ya hay una ficha con esta dirección: se vincula a esa" : "Ficha nueva" })])]);
+        cb.addEventListener("change", () => { marcado.set(g.k, cb.checked); resumen(); });
+        listaEl.appendChild(row); filas.push({ g, ents, cb, row });
+      });
+      if (!filas.length) listaEl.appendChild(el("div", { class: "pm-empty", text: "No hay direcciones con ese filtro. Probá con “Todo” o cambiá las fechas." }));
+      resumen();
+    };
+    const marcarTodas = (v) => { filas.forEach((f) => { f.cb.checked = v; marcado.set(f.g.k, v); }); resumen(); };
+    bTodas.addEventListener("click", () => marcarTodas(true)); bNinguna.addEventListener("click", () => marcarTodas(false));
+    [fDesde, fHasta, fTipo].forEach((i) => i.addEventListener("change", render));
+    x.addEventListener("click", () => ov.remove()); xx.addEventListener("click", () => ov.remove());
+    ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
     bOk.addEventListener("click", async () => {
-      const sel = filas.filter((f) => f.cb.checked); if (!sel.length) { ov.remove(); return; }
+      const sel = filas.filter((f) => f.cb.checked); if (!sel.length) return;
       bOk.disabled = true; let nf = 0, nv = 0;
       try {
         for (let i = 0; i < sel.length; i++) {
@@ -834,20 +901,21 @@ async function traerDePlan() {
           if (id) nv++;
           else {
             id = "p" + Date.now() + i; nf++;
-            const cc = g.ents.map((e) => e.coordsCalle).filter((c) => c && c.lat != null && c.lng != null)[0];
+            const cc = sel[i].ents.map((e) => e.coordsCalle).filter((c) => c && c.lat != null && c.lng != null)[0];
             await setDoc(doc(db, COL_TRAB, id), {
-              direccion: g.dir, que: "", tipo: tipoDeCuadrilla(g.ents[0].cuadrilla), obs: "", rot: 0, takenAt: Date.now(), estado: "pendiente", fotoId: id,
+              direccion: g.dir, que: "", tipo: tipoDeCuadrilla(sel[i].ents[0].cuadrilla), obs: "", rot: 0, takenAt: Date.now(), estado: "pendiente", fotoId: id,
               lat: cc ? cc.lat : null, lon: cc ? cc.lng : null, posT: null, origen: "planificacion",
               creadoPor: currentUser.uid, creadoEn: serverTimestamp(), actualizadoPor: currentUser.uid, actualizadoEn: serverTimestamp()
             });
           }
-          for (const e of g.ents) await updateDoc(doc(db, COL_PLAN, e.id), { trabajoId: id });
+          for (const e of sel[i].ents) await updateDoc(doc(db, COL_PLAN, e.id), { trabajoId: id });
         }
         ov.remove();
         toast((nf ? "Se crearon " + nf + (nf === 1 ? " ficha" : " fichas") : "") + (nf && nv ? " y " : "") + (nv ? "se vincularon " + nv + " a fichas existentes" : "") + ". Ahora agregales la foto con 📎.", null, null, 7000);
-      } catch (er) { bOk.disabled = false; bOk.textContent = "Crear fichas"; toast("No se pudo crear: " + er.message, null, null, 8000); }
+      } catch (er) { bOk.disabled = false; resumen(); toast("No se pudo crear: " + er.message, null, null, 8000); }
     });
-    box.appendChild(bOk); box.appendChild(x); ov.appendChild(box); document.body.appendChild(ov);
+    render();
+    ov.appendChild(box); document.body.appendChild(ov);
   } catch (e) { toast("No se pudo leer la planificación: " + e.message, null, null, 8000); }
   finally { b.disabled = false; }
 }

@@ -135,6 +135,7 @@
     <span class="grow"></span>
     <button class="btn" id="bUp" type="button" title="Subir fotos que llegaron por WhatsApp">📎 Subir fotos</button>
     <input type="file" id="upFile" accept="image/*" multiple hidden>
+    <button class="btn" id="bPlan" type="button" title="Crear fichas con las direcciones de Planificación Vial">📋 Traer de planificación</button>
     <label class="chk" id="allWrap"><input type="checkbox" id="all"> Todas</label>
     <select id="bTipo" aria-label="Tipo para las elegidas"><option value="">Tipo…</option></select>
     <select id="bQue" aria-label="Qué es para las elegidas"><option value="">¿Qué es?…</option></select>
@@ -432,7 +433,18 @@ function addCard(id) {
   const root = el("article", { class: "card" + (edit ? "" : " ro"), "data-id": id });
   const thumb = el("button", { class: "thumb", type: "button", "aria-label": "Ampliar foto" });
   const cv = el("canvas"); thumb.appendChild(cv);
-  const noFoto = el("div", { class: "nofoto", text: "Sin foto en la central (ya está en el Drive del SAT)" });
+  const noFotoTxt = el("div", { text: "" });
+  const bFoto = el("button", { class: "btn", type: "button", text: "📎 Agregar foto" });
+  const inFoto = el("input", { type: "file", accept: "image/*", hidden: "" });
+  bFoto.addEventListener("click", () => inFoto.click());
+  inFoto.addEventListener("change", async () => {
+    const f = inFoto.files[0]; inFoto.value = ""; if (!f) return;
+    bFoto.disabled = true; bFoto.textContent = "Subiendo…";
+    try { await subirUna(f, 0, id); toast("Foto agregada."); }
+    catch (e) { toast("No se pudo subir la foto: " + e.message, null, null, 8000); }
+    bFoto.disabled = false; bFoto.textContent = "📎 Agregar foto";
+  });
+  const noFoto = el("div", { class: "nofoto" }, [noFotoTxt, bFoto, inFoto]);
   const pick = el("input", { type: "checkbox", class: "pick", "aria-label": "Elegir" }); thumb.appendChild(pick);
   const top = el("div", { class: "ficha-top" });
   const badges = el("div", { class: "badges" });
@@ -463,7 +475,7 @@ function addCard(id) {
   acts.appendChild(bGps); acts.appendChild(bDel);
   [fDir, fQue, fTipo, fObs, cuad, et, meta, rot, actsT, acts, saved].forEach((x) => body.appendChild(x));
   root.appendChild(thumb); root.appendChild(noFoto); root.appendChild(top); root.appendChild(body);
-  const c = { root, actsT, cv, thumb, noFoto, pick, inDir, selQue, selTipo, inObs, cuad, et, meta, badges, rot, acts, saved, timer: null };
+  const c = { root, actsT, cv, thumb, noFoto, noFotoTxt, bFoto,  pick, inDir, selQue, selTipo, inObs, cuad, et, meta, badges, rot, acts, saved, timer: null };
   cards.set(id, c);
   $("grid").appendChild(root);
 
@@ -516,6 +528,8 @@ function refresh(id, force) {
   const f = ficha(id), edit = canEdit();
   c.root.classList.toggle("cerrado", f.estado === "cerrado");
   c.cv.parentNode.hidden = !f.tieneFoto; c.noFoto.hidden = f.tieneFoto;
+  c.bFoto.hidden = !edit || f.estado === "cerrado";
+  c.noFotoTxt.textContent = f.estado === "cerrado" ? "Sin foto en la central (ya está en el Drive del SAT)" : "Todavía sin foto";
   setIfIdle(c.inDir, f.direccion); setIfIdle(c.inObs, f.obs);
   if (document.activeElement !== c.selQue) c.selQue.value = f.que;
   if (document.activeElement !== c.selTipo) c.selTipo.value = f.tipo;
@@ -719,7 +733,7 @@ function fechaDeNombre(nombre) {
   const h = /(\d{2})[.:](\d{2})[.:](\d{2})/.exec(nombre.slice(m.index + 8));
   return new Date(+m[1], +m[2] - 1, +m[3], h ? +h[1] : 12, h ? +h[2] : 0, h ? +h[3] : 0).getTime();
 }
-async function subirUna(file, n) {
+async function subirUna(file, n, fixId) {
   const ex = await leerExif(file);
   const when = ex.when || fechaDeNombre(file.name) || file.lastModified || Date.now();
   const url = URL.createObjectURL(file);
@@ -733,7 +747,7 @@ async function subirUna(file, n) {
   let b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
   if (b.size > 1500000) b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.68));
   const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = () => rej(new Error("no se pudo leer")); fr.readAsDataURL(b); });
-  const id = "r" + Date.now() + n + Math.random().toString(36).slice(2, 5);
+  const id = fixId || ("r" + Date.now() + n + Math.random().toString(36).slice(2, 5));
   const np = Math.ceil(b64.length / UP_PARTE);
   for (let i = 0; i < np; i++) await setDoc(doc(db, UP_COL, id, "partes", String(i).padStart(3, "0")), { n: i, d: b64.slice(i * UP_PARTE, (i + 1) * UP_PARTE) });
   /* El documento principal va al final: la central lo ve recién cuando ya están todas las partes */
@@ -742,6 +756,8 @@ async function subirUna(file, n) {
     lat: ex.lat == null ? null : ex.lat, lon: ex.lon == null ? null : ex.lon, acc: null, posT: null,
     takenAt: when, address: "", uid: currentUser.uid, creadoEn: serverTimestamp()
   });
+  /* Foto para una ficha que ya existía (viene de Planificación): la ficha toma la fecha y el GPS de la foto */
+  if (fixId) { const up = { takenAt: when }; if (ex.lat != null) { up.lat = ex.lat; up.lon = ex.lon; } await setDoc(doc(db, "trabajos", fixId), up, { merge: true }); }
 }
 let subiendo = false;
 async function subirArchivos(files) {
@@ -762,6 +778,80 @@ $("bUp").addEventListener("click", () => $("upFile").click());
 $("upFile").addEventListener("change", () => { const f = [...$("upFile").files]; $("upFile").value = ""; subirArchivos(f); });
 document.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].indexOf("Files") >= 0) e.preventDefault(); });
 document.addEventListener("drop", (e) => { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); subirArchivos(e.dataTransfer.files); } });
+
+/* ═════════ Traer de planificación: crea fichas con las direcciones que ya están en Planificación Vial (sin foto; la foto se agrega después) ═════════ */
+const tipoDeCuadrilla = (c) => {
+  const n = normDir(c);
+  if (n.indexOf("prepar") === 0) return "Preparación de suelo";
+  if (n.indexOf("bacheo") === 0) return "Bacheo";
+  if (n.indexOf("sellado") === 0) return "Sellado de juntas";
+  if (n.indexOf("alba") === 0) return "Albañilería";
+  if (n.indexOf("fresad") === 0) return "Fresadora";
+  if (n.indexOf("termin") === 0) return "Terminadora";
+  if (n.indexOf("adoq") === 0) return "Adoquinado";
+  return "";
+};
+async function traerDePlan() {
+  const b = $("bPlan"); b.disabled = true;
+  try {
+    const d0 = new Date(Date.now() - 15 * 86400000), pad = (n) => (n < 10 ? "0" : "") + n;
+    const desde = d0.getFullYear() + "-" + pad(d0.getMonth() + 1) + "-" + pad(d0.getDate());
+    const snap = await getDocs(query(collection(db, COL_PLAN), where("fecha", ">=", desde)));
+    const grupos = new Map();
+    snap.docs.forEach((x) => {
+      const e = Object.assign({ id: x.id }, x.data());
+      const st = estadoEtapa(e);
+      if (e.trabajoId || !e.direccion || !String(e.direccion).trim()) return;
+      if (st === "terminada" || (e.derivadoA && st !== "terminada") || (st === "incompleta" && e.continuaEn)) return;
+      if (/^emulsi/.test(normDir(e.cuadrilla))) return;
+      const k = normDir(e.direccion);
+      if (!grupos.has(k)) grupos.set(k, { k, dir: String(e.direccion).trim(), ents: [], existente: null });
+      grupos.get(k).ents.push(e);
+    });
+    const existentes = new Map();
+    fichaIds().forEach((id) => { const f = ficha(id); if (f.estado !== "cerrado") existentes.set(normDir(f.direccion), id); });
+    grupos.forEach((g) => { g.ents.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))); g.existente = existentes.get(g.k) || null; });
+    const lista = [...grupos.values()].sort((a, b) => String(a.ents[0].fecha).localeCompare(String(b.ents[0].fecha)) || a.dir.localeCompare(b.dir));
+    if (!lista.length) { toast("No hay direcciones nuevas en Planificación (de los últimos 15 días en adelante)."); return; }
+    const ov = el("div", { class: "viewer", role: "dialog", "aria-label": "Traer de planificación" });
+    const box = el("div", { class: "auth-box", style: "max-height:86vh;overflow:auto;max-width:560px" }, [el("h2", { text: "Direcciones de Planificación sin ficha" })]);
+    const fe = (e) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(e.fecha || ""); return m ? m[3] + "/" + m[2] : "s/f"; };
+    const filas = lista.map((g) => {
+      const cb = el("input", { type: "checkbox" }); cb.checked = true;
+      const info = el("div", {}, [el("strong", { text: g.dir }), el("div", { class: "hint", text: g.ents.map((e) => (e.cuadrilla || "?") + " · " + fe(e)).join("  |  ") + (g.existente ? "  →  se vincula a una ficha que ya existe" : "") })]);
+      box.appendChild(el("label", { style: "display:flex;gap:10px;align-items:flex-start;margin:8px 0;text-align:left" }, [cb, info]));
+      return { g, cb };
+    });
+    const bOk = el("button", { class: "btn primary", type: "button", text: "Crear fichas" }), x = el("button", { class: "btn", type: "button", text: "Cancelar" });
+    x.addEventListener("click", () => ov.remove());
+    bOk.addEventListener("click", async () => {
+      const sel = filas.filter((f) => f.cb.checked); if (!sel.length) { ov.remove(); return; }
+      bOk.disabled = true; let nf = 0, nv = 0;
+      try {
+        for (let i = 0; i < sel.length; i++) {
+          const g = sel[i].g; bOk.textContent = "Creando " + (i + 1) + " de " + sel.length + "…";
+          let id = g.existente;
+          if (id) nv++;
+          else {
+            id = "p" + Date.now() + i; nf++;
+            const cc = g.ents.map((e) => e.coordsCalle).filter((c) => c && c.lat != null && c.lng != null)[0];
+            await setDoc(doc(db, COL_TRAB, id), {
+              direccion: g.dir, que: "", tipo: tipoDeCuadrilla(g.ents[0].cuadrilla), obs: "", rot: 0, takenAt: Date.now(), estado: "pendiente", fotoId: id,
+              lat: cc ? cc.lat : null, lon: cc ? cc.lng : null, posT: null, origen: "planificacion",
+              creadoPor: currentUser.uid, creadoEn: serverTimestamp(), actualizadoPor: currentUser.uid, actualizadoEn: serverTimestamp()
+            });
+          }
+          for (const e of g.ents) await updateDoc(doc(db, COL_PLAN, e.id), { trabajoId: id });
+        }
+        ov.remove();
+        toast((nf ? "Se crearon " + nf + (nf === 1 ? " ficha" : " fichas") : "") + (nf && nv ? " y " : "") + (nv ? "se vincularon " + nv + " a fichas existentes" : "") + ". Ahora agregales la foto con 📎.", null, null, 7000);
+      } catch (er) { bOk.disabled = false; bOk.textContent = "Crear fichas"; toast("No se pudo crear: " + er.message, null, null, 8000); }
+    });
+    box.appendChild(bOk); box.appendChild(x); ov.appendChild(box); document.body.appendChild(ov);
+  } catch (e) { toast("No se pudo leer la planificación: " + e.message, null, null, 8000); }
+  finally { b.disabled = false; }
+}
+$("bPlan").addEventListener("click", traerDePlan);
 
 /* ───────── Sesión ───────── */
 const view = (id) => { ["aLoading", "aLogin", "aSignup", "aPending"].forEach((v) => { $(v).hidden = v !== id; }); };
@@ -811,7 +901,7 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = { uid: user.uid, nombre: d.nombre, rol: d.rol };
     $("auth").hidden = true; $("who").hidden = false;
     $("whoName").textContent = "👤 " + d.nombre + (d.rol === "admin" ? "" : " (solo lectura)");
-    ["bUp", "allWrap", "bTipo", "bQue", "bApply", "bRotL", "bRotR"].forEach((i) => { $(i).hidden = d.rol !== "admin"; });
+    ["bUp", "bPlan", "allWrap", "bTipo", "bQue", "bApply", "bRotL", "bRotR"].forEach((i) => { $(i).hidden = d.rol !== "admin"; });
     escuchar();
   } catch (e) { $("auth").hidden = false; view("aLogin"); $("liErr").textContent = "No se pudo verificar tu cuenta: " + e.message; }
 });
